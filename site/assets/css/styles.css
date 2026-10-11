@@ -1,17 +1,19 @@
 /* Vintage Que — official site styles */
 
 :root {
-  --plum-950: #14070f;
-  --plum-900: #1e0b18;
-  --plum-800: #2b1023;
-  --plum-700: #3d1832;
+  /* Brand palette: #141414 #24151D #842B57 #C69B63 #F4E9DF */
+  --plum-950: #141414;
+  --plum-900: #24151d;
+  --plum-800: #2f1a26;
+  --plum-700: #3e1f31;
+  --burgundy: #842b57;
   --pink: #f1c3d2;
   --pink-soft: #f7dfe7;
-  --cream: #f6eee2;
-  --cream-dim: #d9cdbd;
-  --gold: #c9a35a;
-  --gold-light: #e6c987;
-  --line: rgba(230, 201, 135, 0.22);
+  --cream: #f4e9df;
+  --cream-dim: #d8cabd;
+  --gold: #c69b63;
+  --gold-light: #dfbd8c;
+  --line: rgba(223, 189, 140, 0.22);
 
   --serif: "Cormorant Garamond", "Times New Roman", serif;
   --sans: "Jost", "Helvetica Neue", Arial, sans-serif;
@@ -68,7 +70,7 @@ a { color: inherit; }
 
 .nav {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(20, 7, 15, 0.82);
+  background: rgba(20, 20, 20, 0.84);
   backdrop-filter: saturate(140%) blur(14px);
   -webkit-backdrop-filter: saturate(140%) blur(14px);
   border-bottom: 1px solid var(--line);
@@ -116,12 +118,12 @@ a { color: inherit; }
 
 .hero {
   position: relative;
-  min-height: min(88vh, 820px);
-  display: grid; place-items: center; text-align: center;
-  padding: 6rem 0 5rem;
+  min-height: min(90vh, 860px);
+  display: grid; align-items: center;
+  padding: clamp(3rem, 8vw, 5rem) 0;
   background:
     radial-gradient(60% 55% at 50% 38%, rgba(241, 195, 210, 0.16), transparent 70%),
-    radial-gradient(40% 40% at 85% 85%, rgba(201, 163, 90, 0.12), transparent 70%),
+    radial-gradient(40% 40% at 85% 85%, rgba(132, 43, 87, 0.35), transparent 70%),
     linear-gradient(180deg, var(--plum-950), var(--plum-900) 60%, var(--plum-800));
   overflow: hidden;
 }
@@ -130,17 +132,41 @@ a { color: inherit; }
   background-image: repeating-linear-gradient(90deg, transparent 0 119px, rgba(230, 201, 135, 0.05) 119px 120px);
   pointer-events: none;
 }
+.hero__grid {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: clamp(2rem, 5vw, 4.5rem); align-items: center;
+}
+.hero__text { position: relative; z-index: 1; }
+.hero__photo {
+  position: relative; margin: 0; aspect-ratio: 1320 / 1507;
+  border-radius: 999px 999px 4px 4px; overflow: hidden;
+  box-shadow: 0 50px 90px -40px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--line);
+}
+.hero__photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.hero__photo::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(36, 21, 29, 0.55));
+}
+.hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+@media (max-width: 820px) {
+  .hero { text-align: center; padding-top: 2rem; }
+  .hero__grid { grid-template-columns: 1fr; }
+  .hero__photo { order: -1; width: min(78%, 400px); margin: 0 auto; }
+  .hero__actions { justify-content: center; }
+  .hero__tag { margin-left: auto; margin-right: auto; }
+}
 .hero__name {
   font-family: var(--serif);
   font-weight: 400;
-  font-size: clamp(3.4rem, 13vw, 9.5rem);
+  font-size: clamp(3.4rem, 11vw, 8.5rem);
   line-height: 0.92;
   letter-spacing: -0.01em;
   margin: 0;
 }
 .hero__name em { display: block; font-style: italic; color: var(--pink); font-weight: 300; }
 .hero__tag {
-  margin: 1.75rem auto 2.5rem; max-width: 34ch;
+  margin: 1.75rem 0 2.25rem; max-width: 34ch;
   font-size: clamp(0.95rem, 2.2vw, 1.1rem); color: var(--cream-dim); letter-spacing: 0.04em;
 }
 .hero__rule { width: 1px; height: 72px; margin: 0 auto; background: linear-gradient(var(--gold), transparent); }
@@ -309,7 +335,8 @@ a { color: inherit; }
   font-size: clamp(3.2rem, 11vw, 7.5rem); line-height: 0.95;
 }
 .page-head h1 em { font-style: italic; color: var(--pink); font-weight: 300; }
-.page-head p:last-child { margin: 1.25rem auto 0; max-width: 46ch; color: var(--cream-dim); }
+.page-head [data-catalog-links] .stream-buttons { margin-top: 1.5rem; }
+.page-head p:last-of-type { margin: 1.25rem auto 0; max-width: 46ch; color: var(--cream-dim); }
 
 /* ---------- Discography ---------- */
 
@@ -327,6 +354,24 @@ a { color: inherit; }
   margin: 0; font-family: var(--serif); font-weight: 400;
   font-size: clamp(2.6rem, 6vw, 4.5rem); line-height: 1;
 }
+.release__feat { margin: 0.35rem 0 0; font-family: var(--serif); font-style: italic; font-size: 1.2rem; color: var(--pink); }
+
+/* Catalog: lead release full width, the rest as a card grid */
+#discography {
+  display: grid; gap: clamp(2rem, 4vw, 3rem) clamp(1rem, 3vw, 2.25rem);
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 42vw), 1fr));
+}
+@media (min-width: 821px) { #discography { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } }
+.release--lead { grid-column: 1 / -1; margin-bottom: clamp(1rem, 3vw, 2rem); }
+.release:not(.release--lead) {
+  display: block; padding: 0; border: 0;
+}
+.release:not(.release--lead) .release__art { position: static; margin-bottom: 1rem; }
+.release:not(.release--lead) .release__title { font-size: clamp(1.5rem, 3vw, 2rem); }
+.release:not(.release--lead) .facts { margin: 0.6rem 0 0; gap: 0.5rem 1.25rem; }
+.release:not(.release--lead) .facts dd { font-size: 1rem; }
+.release:not(.release--lead) .cover--type .cover__title { font-size: clamp(1.6rem, 5vw, 2.6rem); }
+.release:not(.release--lead) .cover--type .cover__artist { font-size: 0.6rem; }
 .release__copy { color: var(--cream-dim); max-width: 52ch; }
 
 .facts { display: flex; flex-wrap: wrap; gap: 1.25rem 2.5rem; margin: 1.75rem 0; }

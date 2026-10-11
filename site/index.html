@@ -4,15 +4,31 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vintage Que — Official Site</title>
-  <meta name="description" content="Official website of recording artist Vintage Que. New single “Go Up” out now." />
-  <meta name="theme-color" content="#1e0b18" />
+  <meta name="description" content="Official website of Detroit hip-hop and R&amp;B artist Vintage Que. New single “Go Up” out now." />
+  <meta name="theme-color" content="#24151d" />
   <meta property="og:title" content="Vintage Que — Go Up, out now" />
   <meta property="og:description" content="Stream the new single “Go Up” by Vintage Que." />
   <meta property="og:type" content="music.song" />
+  <meta property="og:image" content="assets/img/go-up-cover.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MusicGroup",
+    "name": "Vintage Que",
+    "genre": ["Hip-hop", "R&B"],
+    "foundingLocation": "Detroit, Michigan",
+    "sameAs": [
+      "https://music.apple.com/us/artist/vintage-que/1552082244",
+      "https://www.youtube.com/channel/UCC6tRJR7Aqkpli4wyviigGA",
+      "https://instagram.com/vintage_que",
+      "https://tiktok.com/@vintage_que"
+    ]
+  }
+  </script>
   <script>document.documentElement.classList.remove("no-js");</script>
 </head>
 <body>
@@ -36,13 +52,23 @@
 
   <main id="main">
     <section class="hero" aria-label="Vintage Que">
-      <div class="wrap">
-        <p class="eyebrow rise">Recording Artist</p>
-        <h1 class="hero__name rise">Vintage <em>Que</em></h1>
-        <p class="hero__tag rise">The new single “Go Up” is out now.</p>
-        <div class="rise">
-          <a class="cta cta--ghost" href="#go-up">Hear Go Up</a>
+      <div class="wrap hero__grid">
+        <div class="hero__text">
+          <p class="eyebrow rise">Detroit · Hip-hop &amp; R&amp;B</p>
+          <h1 class="hero__name rise">Vintage <em>Que</em></h1>
+          <p class="hero__tag rise">The new single “Go Up” is out now.</p>
+          <div class="hero__actions rise">
+            <a class="cta" href="#go-up">Play Go Up</a>
+            <a class="cta cta--ghost" href="music.html">Discography</a>
+          </div>
         </div>
+        <figure class="hero__photo rise">
+          <img src="assets/img/vintage-que-portrait.jpg"
+               srcset="assets/img/vintage-que-portrait-720.jpg 720w, assets/img/vintage-que-portrait.jpg 1320w"
+               sizes="(max-width: 820px) 78vw, 45vw"
+               width="1320" height="1507" fetchpriority="high"
+               alt="Vintage Que in a brown sequined halter dress, standing beside a white SUV at night" />
+        </figure>
       </div>
     </section>
 

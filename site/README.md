@@ -8,11 +8,21 @@ Static site, no build step. Open `index.html` or deploy the `site/` folder to an
 - `assets/js/music.js` — rendering, URL checks and the accessible Spotify/YouTube player tabs.
 - `assets/css/styles.css` — plum, pink, cream and gold theme.
 
-## Going live with "Go Up"
+## Content status (from the October 2026 brand kit)
 
-1. Copy the original "Go Up" cover into `assets/img/` (for example `go-up-cover.jpg`, square, 1400px or larger) and set `artwork` in `releases.js`.
-2. Paste the official release URLs into `links.spotify`, `links.appleMusic` and `links.youtube`. Copy them from the artist's own Spotify, Apple Music and YouTube pages or the distributor's release report. Also fill in `releaseDate` and `label`.
-3. Optionally add the artist profile URLs under `VQ_ARTIST.profiles` (footer icons).
+Already in place:
+- **Catalog:** Go Up (Single, Sept 4 2026, Vibin With Vintage Entertainment), My Man, Love Is (feat. Brayden), Dear Diary, Vintage Chanel, DND, Got Away.
+- **Artwork:** Go Up, Dear Diary, Vintage Chanel, DND (cropped from the kit's screenshots, metadata stripped).
+- **Homepage portrait:** the white-SUV close portrait.
+- **Artist links:** Apple Music artist page, YouTube channel, Instagram, TikTok.
+
+Until release-specific URLs exist, the Go Up buttons and **STREAM GO UP NOW** link to the verified **artist** pages, labelled as such for screen readers.
+
+Still needed:
+1. Official **Go Up** URLs for Spotify, Apple Music (track) and YouTube. Paste them into `links` in `releases.js`; the embedded player (Spotify and/or YouTube) then appears automatically on both pages.
+2. The Spotify artist URL (`VQ_ARTIST.profiles.spotify`).
+3. Full-resolution original covers (the current files are screenshots) and artwork for My Man, Love Is and Got Away.
+4. Artist and photographer permission for the portrait.
 
 ### Placeholder-free by design
 
