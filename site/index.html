@@ -43,8 +43,11 @@
       <nav aria-label="Primary">
         <ul class="nav__menu" id="nav-menu">
           <li><a href="index.html" aria-current="page">Home</a></li>
-          <li><a href="#go-up">Go Up</a></li>
           <li><a href="music.html">Music</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="visuals.html">Visuals</a></li>
+          <li><a href="shows.html">Shows</a></li>
+          <li><a href="booking.html">Booking</a></li>
         </ul>
       </nav>
     </div>
@@ -59,7 +62,7 @@
           <p class="hero__tag rise">The new single “Go Up” is out now.</p>
           <div class="hero__actions rise">
             <a class="cta" href="#go-up">Play Go Up</a>
-            <a class="cta cta--ghost" href="music.html">Discography</a>
+            <a class="cta cta--ghost" href="booking.html">Book Vintage</a>
           </div>
         </div>
         <figure class="hero__photo rise">
@@ -76,6 +79,31 @@
       <div class="wrap" id="featured-release"></div>
     </section>
 
+    <section class="split split--home" aria-labelledby="roots-title">
+      <div class="wrap split__grid">
+        <figure class="split__photo reveal">
+          <img src="assets/img/vintage-que-detroit-red-car.jpg" width="1169" height="863" loading="lazy"
+               alt="Vintage Que crouching beside a red classic car with gold rims" />
+        </figure>
+        <div class="split__text reveal">
+          <p class="eyebrow">Detroit roots</p>
+          <h2 class="section-title" id="roots-title">Street energy, <em>feminine confidence</em></h2>
+          <p>Hip-hop and R&amp;B from the Motor City, built on melodic hooks, personal storytelling and catchy, universal choruses.</p>
+          <p class="split__actions"><a class="cta cta--ghost" href="about.html">Her story</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="book-band" aria-labelledby="book-title">
+      <div class="wrap book-band__inner reveal">
+        <div>
+          <p class="eyebrow">Performances · Hosting · Partnerships</p>
+          <h2 class="section-title" id="book-title">Bring Vintage Que <em>to your stage</em></h2>
+        </div>
+        <a class="cta" href="booking.html">Book Vintage</a>
+      </div>
+    </section>
+
     <section class="cta-banner" id="cta-banner" aria-labelledby="cta-title" hidden>
       <div class="wrap">
         <p class="eyebrow">Available everywhere</p>
@@ -84,16 +112,35 @@
         <p style="margin-top:2rem"><a class="cta cta--ghost" href="music.html">Explore the music</a></p>
       </div>
     </section>
+
+    <section class="newsletter" id="newsletter" aria-labelledby="newsletter-title">
+      <div class="wrap newsletter__inner">
+        <div>
+          <p class="eyebrow">Vibin With Vintage</p>
+          <h2 class="newsletter__title" id="newsletter-title">Be first to <em>hear it</em></h2>
+          <p class="newsletter__copy">New music, videos and show dates, straight to your inbox. No spam, unsubscribe anytime.</p>
+        </div>
+        <form class="form form--inline" data-form="newsletter" novalidate>
+          <label class="visually-hidden" for="nl-email">Email address</label>
+          <input id="nl-email" name="email" type="email" autocomplete="email" placeholder="Your email" required />
+          <input class="visually-hidden" type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <button class="cta" type="submit">Join</button>
+          <p class="form__status" id="nl-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
     <div class="wrap footer__inner">
-      <small>&copy; <span id="year"></span> Vintage Que. All rights reserved.</small>
-      <ul class="profiles" data-profiles aria-label="Vintage Que on streaming platforms"></ul>
+      <small>&copy; <span id="year"></span> Vintage Que · Vibin With Vintage Entertainment</small>
+      <ul class="profiles" data-profiles aria-label="Vintage Que on social and streaming platforms"></ul>
     </div>
   </footer>
 
   <script src="assets/js/releases.js"></script>
+  <script src="assets/js/site-config.js"></script>
   <script src="assets/js/music.js"></script>
+  <script src="assets/js/site.js"></script>
 </body>
 </html>

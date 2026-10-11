@@ -1,12 +1,20 @@
-# Vintage Que — official site (music section)
+# Vintage Que — official site
 
-Static site, no build step. Open `index.html` or deploy the `site/` folder to any static host.
+Static site, no build step. Open `index.html` or deploy the `site/` folder to any static host (Netlify, Vercel, GitHub Pages, Cloudflare Pages), then point the domain at it.
 
-- `index.html` — homepage with the featured **GO UP — OUT NOW** release, official player and the **STREAM GO UP NOW** call to action.
-- `music.html` — discography: artwork, release info, tracklist and official players.
-- `assets/js/releases.js` — **all release data lives here.**
-- `assets/js/music.js` — rendering, URL checks and the accessible Spotify/YouTube player tabs.
-- `assets/css/styles.css` — plum, pink, cream and gold theme.
+Pages: `index.html` (Home, featured **GO UP — OUT NOW**), `music.html` (discography), `about.html` (story and her own quotes), `visuals.html` (photos, YouTube), `shows.html` (live dates), `booking.html` (press kit and booking inquiry). Each page ends with the mailing-list signup.
+
+Content files:
+- `assets/js/releases.js` — releases, streaming links, artist profiles.
+- `assets/js/site-config.js` — show dates and form endpoints.
+- `assets/js/music.js`, `assets/js/site.js` — rendering, URL checks, player, forms.
+- `assets/css/styles.css` — brand theme.
+
+## Forms
+The booking form and the mailing list need a form service. Create a form at a provider such as Formspree that delivers to the approved booking inbox, then paste its `https://` endpoint into `VQ_FORMS` in `site-config.js`. Until then the forms show but cannot be submitted, and they say so. Both include a hidden anti-spam field.
+
+## Shows
+Add confirmed dates to `VQ_SHOWS` in `site-config.js`. Past dates hide automatically. With no dates, the page says none are announced.
 
 ## Content status (from the October 2026 brand kit)
 
@@ -22,7 +30,9 @@ Still needed:
 1. Official **Go Up** URLs for Spotify, Apple Music (track) and YouTube. Paste them into `links` in `releases.js`; the embedded player (Spotify and/or YouTube) then appears automatically on both pages.
 2. The Spotify artist URL (`VQ_ARTIST.profiles.spotify`).
 3. Full-resolution original covers (the current files are screenshots) and artwork for My Man, Love Is and Got Away.
-4. Artist and photographer permission for the portrait.
+4. Artist and photographer permission for all photos.
+5. A booking inbox and form endpoints (see Forms).
+6. Approval of the About/press bio and quotes (taken from her own interview answers).
 
 ### Placeholder-free by design
 
