@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SpeakHandlers, SpeakOptions, SpeechEngine, VoiceInfo } from '../src/core/speech/engine';
+import type { SequenceHandlers, SequenceItem, SequenceSpeechEngine, SpeakHandlers, SpeakOptions, SpeechEngine, VoiceInfo } from '../src/core/speech/engine';
 import { Narrator, bookPercent } from '../src/core/speech/narrator';
 import type { Chapter } from '../src/core/types';
 
@@ -215,5 +215,103 @@ describe('Narrator', () => {
   it('computes book percent', () => {
     expect(bookPercent(chapters, { chapter: 0, offset: 0 })).toBe(0);
     expect(bookPercent(chapters, { chapter: 1, offset: chapters[1].text.length })).toBe(1);
+  });
+});
+
+class FakeSequenceEngine extends FakeEngine implements SequenceSpeechEngine {
+  sequences: Array<{ key: string; items: SequenceItem[]; titles: string[] }> = [];
+  seqHandlers: SequenceHandlers | null = null;
+  sleep: Array<'off' | 'chapter' | number> = [];
+  speakSequence(key: string, items: SequenceItem[], _o: SpeakOptions, h: SequenceHandlers, titles: string[]) {
+    this.sequences.push({ key, items, titles });
+    this.seqHandlers = h;
+  }
+  cancel() {
+    super.cancel();
+    this.seqHandlers = null;
+  }
+  setSleepTimer(m: 'off' | 'chapter' | number) {
+    this.sleep.push(m);
+  }
+  setNowPlaying() {}
+  async getSavedPosition() {
+    return null;
+  }
+}
+
+describe('Narrator with a native queue (iOS app)', () => {
+  let engine: FakeSequenceEngine;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    engine = new FakeSequenceEngine();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('hands the rest of the book to the engine as one queue, from the exact word', () => {
+    const n = new Narrator(engine, chapters, { ...opts, key: 'book-1' }, { chapter: 0, offset: 4 });
+    n.play();
+    expect(engine.spoken).toHaveLength(0);
+    const { key, items, titles } = engine.sequences[0];
+    expect(key).toBe('book-1');
+    expect(titles).toEqual(['One', 'Two']);
+    expect(items.map((i) => i.chapter)).toEqual([0, 0, 1, 1]);
+    expect(items[0]).toEqual({ text: A.slice(4), chapter: 0, start: 4 });
+    expect(items[2]).toEqual({ text: C, chapter: 1, start: 0 });
+  });
+
+  it('mirrors native progress, including across chapters', () => {
+    const n = new Narrator(engine, chapters, opts);
+    n.play();
+    const h = engine.seqHandlers!;
+    h.onItemStart(1);
+    h.onBoundary(1, 4);
+    expect(n.position).toEqual({ chapter: 0, offset: A.length + 1 + 4 });
+    h.onItemStart(2);
+    expect(n.getState()).toMatchObject({ chapter: 1, chunkIndex: 0, offset: 0, status: 'playing' });
+    h.onDone();
+    expect(n.getState().status).toBe('ended');
+  });
+
+  it('follows Lock Screen pause/resume and explains interruptions', () => {
+    const n = new Narrator(engine, chapters, opts);
+    n.play();
+    engine.seqHandlers!.onPaused('remote');
+    expect(n.getState()).toMatchObject({ status: 'paused', notice: null });
+    engine.seqHandlers!.onResumed();
+    expect(n.getState().status).toBe('playing');
+    engine.seqHandlers!.onPaused('interrupted');
+    expect(n.getState().notice).toMatch(/interrupted/);
+  });
+
+  it('lets the engine run the sleep timer (it keeps time in the background)', () => {
+    const n = new Narrator(engine, chapters, opts);
+    n.play();
+    n.setSleepTimer(15);
+    n.setSleepTimer('chapter');
+    expect(engine.sleep).toEqual([15, 'chapter']);
+    vi.advanceTimersByTime(20 * 60_000);
+    expect(n.getState().status).toBe('playing'); // no JS timer fired
+    engine.seqHandlers!.onPaused('sleep-chapter');
+    expect(n.getState()).toMatchObject({ status: 'paused', sleep: { mode: 'off' } });
+  });
+
+  it('pausing in the app stops the native queue and resumes from the same word', () => {
+    const n = new Narrator(engine, chapters, opts);
+    n.play();
+    engine.seqHandlers!.onItemStart(1);
+    engine.seqHandlers!.onBoundary(1, 11);
+    n.pause();
+    expect(engine.seqHandlers).toBeNull();
+    n.play();
+    expect(engine.sequences[1].items[0].text).toBe('sentence follows it very nicely indeed.');
+  });
+
+  it('ignores events from a replaced queue', () => {
+    const n = new Narrator(engine, chapters, opts);
+    n.play();
+    const stale = engine.seqHandlers!;
+    n.skip(1);
+    stale.onItemStart(3);
+    expect(n.getState().chapter).toBe(0);
   });
 });

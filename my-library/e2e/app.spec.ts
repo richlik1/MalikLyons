@@ -152,3 +152,12 @@ test('works offline after the first visit', async ({ page, context }) => {
   await expect(page.getByRole('dialog', { name: 'Book added' })).toBeVisible();
   await context.setOffline(false);
 });
+
+test('the built-in sample book starts reading immediately', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Try a sample book' }).click();
+  await expect(page.locator('.player-title .bt')).toHaveText('Welcome to My Library');
+  await expect.poll(() => spoken(page)).toEqual(['Welcome']);
+  await finish(page);
+  await expect.poll(async () => (await spoken(page)).at(-1)).toMatch(/^Welcome to My Library, your private audiobook shelf/);
+});

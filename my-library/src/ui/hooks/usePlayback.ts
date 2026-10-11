@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Narrator, bookPercent, type NarratorState } from '../../core/speech/narrator';
 import { saveProgress, updateBook } from '../../core/storage/db';
 import type { Book, Chapter, Position } from '../../core/types';
+import { isSequenceEngine } from '../../core/speech/engine';
 import { speechEngine } from '../engine';
+import { isNativeApp } from '../platform';
 import { useSettings } from './settings';
 
 type WakeLockSentinelLike = { release(): Promise<void>; released?: boolean };
@@ -39,7 +41,7 @@ export function usePlayback(book: Book, chapters: Chapter[], start: Position, vo
 
   useEffect(() => {
     const { start: pos, ...opts } = initial.current;
-    const n = new Narrator(speechEngine, chapters, opts, pos);
+    const n = new Narrator(speechEngine, chapters, { ...opts, key: book.id }, pos);
     setNarrator(n);
     updateBook(book.id, { lastOpenedAt: Date.now() }).catch(() => undefined);
     const unsub = n.subscribe((s) => {
@@ -82,7 +84,8 @@ export function usePlayback(book: Book, chapters: Chapter[], start: Position, vo
   // Keep the screen awake while narrating: browser speech stops when an iPhone locks.
   const playing = state?.status === 'playing';
   useEffect(() => {
-    if (!playing || !settings.keepAwake || !('wakeLock' in navigator)) return;
+    // The iOS app keeps narrating with the screen locked, so it doesn't need this.
+    if (!playing || !settings.keepAwake || isNativeApp() || !('wakeLock' in navigator)) return;
     let lock: WakeLockSentinelLike | null = null;
     let cancelled = false;
     const acquire = async () => {
@@ -106,8 +109,14 @@ export function usePlayback(book: Book, chapters: Chapter[], start: Position, vo
 
   // Media Session: headphone / keyboard media keys where the browser supports it.
   useEffect(() => {
+    if (!narrator) return;
+    if (isSequenceEngine(speechEngine)) {
+      // Lock Screen / Control Center info is handled natively in the iOS app.
+      speechEngine.setNowPlaying({ title: book.title, artist: book.author || 'My Library', artwork: book.cover });
+      return;
+    }
     const ms = navigator.mediaSession;
-    if (!ms || !narrator) return;
+    if (!ms) return;
     try {
       ms.metadata = new MediaMetadata({
         title: book.title,

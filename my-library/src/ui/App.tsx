@@ -6,13 +6,15 @@ import { speechEngine } from './engine';
 import { SettingsProvider } from './hooks/settings';
 import { ToastProvider } from './hooks/toast';
 import { useRoute } from './hooks/useRoute';
+import { isNativeApp } from './platform';
 
 export function App() {
   const route = useRoute();
   return (
     <ToastProvider>
       <SettingsProvider>
-        <UpdatePrompt />
+        {/* The App Store app updates through the App Store, not a service worker. */}
+        {!isNativeApp() && <UpdatePrompt />}
         {!speechEngine.isSupported() && (
           <div className="banner warn" style={{ margin: 12 }}>
             <div className="banner-body">

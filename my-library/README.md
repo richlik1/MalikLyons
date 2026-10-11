@@ -10,6 +10,11 @@ My Library extracts the text and reads it aloud with your device's built-in voic
 
 Built with React + TypeScript, PDF.js, the browser SpeechSynthesis API, IndexedDB and a PWA service worker (Workbox).
 
+**Two ways to ship it:**
+1. **Web app (free):** host it and add it to your Home Screen from Safari. See *Put it on your iPhone* below.
+2. **Native iPhone app for the App Store** (in `ios/`, built with Capacitor): keeps reading with the screen locked and adds
+   Lock Screen controls. See **[APP_STORE.md](APP_STORE.md)** for testing it on your phone and selling it.
+
 ---
 
 ## Features
@@ -30,9 +35,9 @@ Built with React + TypeScript, PDF.js, the browser SpeechSynthesis API, IndexedD
 
 ### Honest limitations (please read)
 
-- **iPhone lock screen / background:** iOS stops web-app speech when the screen locks or you switch apps. My Library keeps the
-  screen awake while reading (Settings → *Keep screen awake*), saves your exact place, and continues from the same sentence when
-  you return. True background and lock-screen playback needs a native app — see [ARCHITECTURE.md](ARCHITECTURE.md).
+- **iPhone lock screen / background (web version only):** iOS stops web-app speech when the screen locks or you switch apps. The
+  web version keeps the screen awake while reading, saves your exact place, and continues from the same sentence when you
+  return. The **native app** in `ios/` keeps reading in the background and shows Lock Screen controls. See [APP_STORE.md](APP_STORE.md).
 - Voice quality depends on your device. On iPhone, download free better voices: **Settings → Accessibility → Spoken Content →
   Voices → English → (e.g.) Ava / Zoe / Evan “Enhanced” or “Premium”**, then choose them in *Voice & speed*.
 - Scanned (image-only) PDFs need OCR first. OCR is not built in (a good offline OCR engine would add ~15 MB and be slow on a
@@ -63,6 +68,8 @@ npm run test:e2e   # end-to-end tests in Chromium — Playwright (upload PDF →
 npm run typecheck  # TypeScript
 npm run build      # production build into dist/ (includes the offline service worker)
 npm run preview    # serve the production build on http://localhost:4173
+npm run ios        # (Mac only) build, copy into the iOS project and open Xcode
+npm run ios:sync   # build and copy into the iOS project
 ```
 
 > For `npm run test:e2e` you need Playwright's Chromium once: `npx playwright install chromium`.
@@ -130,9 +137,13 @@ my-library/
 │   └── main.tsx
 ├── tests/                    # Vitest unit tests
 ├── e2e/                      # Playwright end-to-end tests
-├── public/icons/             # App icons (Home Screen, manifest)
+├── public/icons/             # App icons (Home Screen, manifest); public/privacy.html = privacy policy
+├── ios/                      # Native iOS app (Capacitor). Swift: ios/App/App/NativeSpeechPlugin.swift
+├── store/screenshots/        # App Store screenshots (6.9" iPhone)
+├── capacitor.config.ts       # Native app id / name
 ├── vite.config.ts            # Vite + PWA (manifest, offline precache)
-└── ARCHITECTURE.md           # Design notes and the native iOS path
+├── APP_STORE.md              # Test on your iPhone, publish and sell on the App Store
+└── ARCHITECTURE.md           # Design notes
 ```
 
 No paid services are used. The only network requests the app ever makes are to load itself from where you host it.

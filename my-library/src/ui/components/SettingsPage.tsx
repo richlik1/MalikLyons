@@ -8,6 +8,7 @@ import { goBack } from '../hooks/useRoute';
 import { formatBytes } from './BookDetailsSheet';
 import { Icon } from './Icon';
 import { downloadBlob } from './PlayerSheets';
+import { isNativeApp } from '../platform';
 
 export function SettingsPage() {
   const { settings, update } = useSettings();
@@ -35,7 +36,7 @@ export function SettingsPage() {
     try {
       const blob = await exportBackupBlob(withFiles);
       const date = new Date().toISOString().slice(0, 10);
-      downloadBlob(blob, `my-library-backup-${date}${withFiles ? '-full' : ''}.json`);
+      await downloadBlob(blob, `my-library-backup-${date}${withFiles ? '-full' : ''}.json`);
       toast(`Backup created (${formatBytes(blob.size)}). On iPhone, choose “Save to Files”.`);
     } catch (e) {
       toast(`Backup failed: ${(e as Error).message}`, { kind: 'error' });
@@ -120,17 +121,21 @@ export function SettingsPage() {
           <p>Storage information is not available in this browser.</p>
         )}
         <p>
-          {persisted
-            ? '✓ Your library is protected from automatic clean-up by the browser.'
-            : 'Browsers may clear website data that is not used for a while. Installing the app to your Home Screen (and tapping the button below) protects it. Keep a backup too.'}
+          {isNativeApp()
+            ? 'Your books are stored inside the app on this iPhone. Deleting the app deletes them, so keep a backup in Files or iCloud Drive.'
+            : persisted
+              ? '✓ Your library is protected from automatic clean-up by the browser.'
+              : 'Browsers may clear website data that is not used for a while. Installing the app to your Home Screen (and tapping the button below) protects it. Keep a backup too.'}
         </p>
-        {!persisted && (
+        {!persisted && !isNativeApp() && (
           <button
             className="btn"
             onClick={async () => {
               const ok = await requestPersistentStorage();
               setPersisted(ok);
-              toast(ok ? 'Library storage is now protected.' : 'The browser did not grant protected storage. Install the app and keep backups.');
+              toast(
+                ok ? 'Library storage is now protected.' : 'The browser did not grant protected storage. Install the app and keep backups.',
+              );
             }}
           >
             <Icon name="shield" size={18} /> Protect my library
@@ -163,13 +168,15 @@ export function SettingsPage() {
           </span>
           <input type="checkbox" checked={settings.followAlong} onChange={(e) => update({ followAlong: e.target.checked })} />
         </label>
-        <label className="switch">
-          <span>
-            Keep screen awake while listening
-            <small>Browser speech stops when an iPhone locks, so this keeps the screen on during narration.</small>
-          </span>
-          <input type="checkbox" checked={settings.keepAwake} onChange={(e) => update({ keepAwake: e.target.checked })} />
-        </label>
+        {!isNativeApp() && (
+          <label className="switch">
+            <span>
+              Keep screen awake while listening
+              <small>Browser speech stops when an iPhone locks, so this keeps the screen on during narration.</small>
+            </span>
+            <input type="checkbox" checked={settings.keepAwake} onChange={(e) => update({ keepAwake: e.target.checked })} />
+          </label>
+        )}
         <label className="switch" style={{ borderBottom: 0 }}>
           <span>
             Show novelty voices
@@ -205,7 +212,13 @@ export function SettingsPage() {
             setNewCat('');
           }}
         >
-          <input className="input" style={{ flex: 1, minWidth: 160 }} placeholder="New category" value={newCat} onChange={(e) => setNewCat(e.target.value)} />
+          <input
+            className="input"
+            style={{ flex: 1, minWidth: 160 }}
+            placeholder="New category"
+            value={newCat}
+            onChange={(e) => setNewCat(e.target.value)}
+          />
           <button className="btn" type="submit">
             Add
           </button>
@@ -215,25 +228,44 @@ export function SettingsPage() {
         </p>
       </section>
 
-      <section className="card">
-        <h3>iPhone: install &amp; listening tips</h3>
-        <ol className="steps">
-          <li>
-            Open this app in <strong>Safari</strong>, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>. Open it from the new
-            icon.
-          </li>
-          <li>Turn off Silent mode or raise the volume if you hear nothing (speech follows the ring/silent switch on some iOS versions).</li>
-          <li>
-            For much better voices, download free <strong>Enhanced</strong> or <strong>Premium</strong> voices: Settings → Accessibility → Spoken
-            Content → Voices. Then pick them in Voice &amp; speed.
-          </li>
-          <li>
-            <strong>Honest limitation:</strong> iOS stops web-app speech when the screen locks or you switch apps. My Library keeps the screen
-            awake while it reads and saves your exact place; when you come back it picks up from the same sentence. Background and lock-screen
-            listening require a native app (this project is structured for that).
-          </li>
-        </ol>
-      </section>
+      {isNativeApp() ? (
+        <section className="card">
+          <h3>Listening tips</h3>
+          <ol className="steps">
+            <li>
+              Narration keeps playing with the screen locked or while you use other apps. Control it from the Lock Screen, Control Center or
+              your headphones.
+            </li>
+            <li>
+              For much better voices, download free <strong>Enhanced</strong> or <strong>Premium</strong> voices: Settings → Accessibility →
+              Spoken Content → Voices. Then pick them in Voice &amp; speed.
+            </li>
+            <li>Your place is saved continuously, even if the app is closed while it reads.</li>
+          </ol>
+        </section>
+      ) : (
+        <section className="card">
+          <h3>iPhone: install &amp; listening tips</h3>
+          <ol className="steps">
+            <li>
+              Open this app in <strong>Safari</strong>, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>. Open it from
+              the new icon.
+            </li>
+            <li>
+              Turn off Silent mode or raise the volume if you hear nothing (speech follows the ring/silent switch on some iOS versions).
+            </li>
+            <li>
+              For much better voices, download free <strong>Enhanced</strong> or <strong>Premium</strong> voices: Settings → Accessibility →
+              Spoken Content → Voices. Then pick them in Voice &amp; speed.
+            </li>
+            <li>
+              <strong>Honest limitation:</strong> iOS stops web-app speech when the screen locks or you switch apps. My Library keeps the
+              screen awake while it reads and saves your exact place; when you come back it picks up from the same sentence. Background and
+              lock-screen listening require a native app (this project is structured for that).
+            </li>
+          </ol>
+        </section>
+      )}
 
       <section className="card">
         <h3>Scanned PDFs</h3>
@@ -244,11 +276,13 @@ export function SettingsPage() {
         <h3>Privacy</h3>
         <p style={{ marginBottom: 0 }}>
           My Library has no account, no server, no analytics and no tracking. Books, progress and notes are stored only in this browser’s
-          private storage on this device. Text is spoken by your device’s built-in voices (some “online” voices on Chrome/Android may use the
-          browser maker’s speech service — the voice list marks them).
+          private storage on this device. Text is spoken by your device’s built-in voices (some “online” voices on Chrome/Android may use
+          the browser maker’s speech service — the voice list marks them).
         </p>
       </section>
-      <p className="muted small" style={{ textAlign: 'center' }}>My Library v{__APP_VERSION__} · free &amp; open</p>
+      <p className="muted small" style={{ textAlign: 'center' }}>
+        My Library v{__APP_VERSION__} · free &amp; open
+      </p>
     </div>
   );
 }

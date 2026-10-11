@@ -4,7 +4,9 @@ import type { VoiceInfo } from '../../core/speech/engine';
 import { isIOS } from '../../core/speech/webSpeechEngine';
 import { deleteAnnotation, getBook, getContent, getProgress, listAnnotations, saveAnnotation } from '../../core/storage/db';
 import type { Annotation, Book, Chapter, HighlightColor, Position } from '../../core/types';
+import { isSequenceEngine } from '../../core/speech/engine';
 import { speechEngine } from '../engine';
+import { isNativeApp } from '../platform';
 import { useSettings } from '../hooks/settings';
 import { useToast } from '../hooks/toast';
 import { usePlayback } from '../hooks/usePlayback';
@@ -32,7 +34,15 @@ export function Player({ id, autoplay }: { id: string; autoplay: boolean }) {
       const [book, content, progress, annotations] = await Promise.all([getBook(id), getContent(id), getProgress(id), listAnnotations(id)]);
       if (!alive) return;
       if (!book || !content) return setData('missing');
-      const start = progress && !progress.finished ? { chapter: progress.chapter, offset: progress.offset } : { chapter: 0, offset: 0 };
+      let start = progress && !progress.finished ? { chapter: progress.chapter, offset: progress.offset } : { chapter: 0, offset: 0 };
+      // The iOS app also saves the position natively, which survives the app
+      // being closed while narrating in the background. Use whichever is newer.
+      if (isSequenceEngine(speechEngine)) {
+        const native = await speechEngine.getSavedPosition(id);
+        if (native && native.updatedAt > (progress?.updatedAt ?? 0) && native.chapter < content.chapters.length)
+          start = { chapter: native.chapter, offset: native.offset };
+      }
+      if (!alive) return;
       setData({ book, chapters: content.chapters, start, annotations });
     })().catch(() => alive && setData('missing'));
     return () => {
@@ -90,9 +100,9 @@ function PlayerView({ data, autoplay }: { data: Loaded; autoplay: boolean }) {
   const [dismissedNotice, setDismissedNotice] = useState<string | null>(null);
   const [lockTip, setLockTip] = useState(() => {
     try {
-      return isIOS() && localStorage.getItem('ml-lock-tip') !== '1';
+      return isIOS() && !isNativeApp() && localStorage.getItem('ml-lock-tip') !== '1';
     } catch {
-      return isIOS();
+      return isIOS() && !isNativeApp();
     }
   });
 

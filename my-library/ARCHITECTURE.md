@@ -72,23 +72,30 @@ so the app opens, imports and reads with no network. PDF.js CJK character maps/f
 hash routing let the same build run from any host or sub-path. `navigator.storage.persist()` is requested to protect the library
 from eviction; the Screen Wake Lock API keeps the screen on while narrating.
 
-## Path to a native iOS app (background audio, lock screen, neural voices)
+## Native iOS app (App Store build)
 
-The browser cannot give background or lock-screen speech on iOS. A native shell can, reusing everything in `src/core` and most of
-`src/ui`:
+`ios/` is a [Capacitor](https://capacitorjs.com) project (free, open source). It wraps the same web build and swaps the speech
+engine. `src/ui/engine.ts` is the only place that chooses the engine.
 
-1. **Wrap the app with [Capacitor](https://capacitorjs.com)** (free, open source): `npm i @capacitor/core @capacitor/ios`,
-   `npx cap add ios`. The React UI runs in a WKWebView; build with Xcode (a free Apple ID can install on your own iPhone; App
-   Store distribution needs the paid developer program).
-2. **Add a `NativeSpeechEngine`** implementing the same `SpeechEngine` interface via a small Capacitor plugin:
-   - `AVSpeechSynthesizer` with `AVAudioSession` category `.playback` + the *Audio* background mode → speech continues with the
-     screen locked; `willSpeakRangeOfSpeechString` maps directly to `onBoundary`.
-   - or an **offline neural TTS** (e.g. Piper/Kokoro models via sherpa-onnx, both free/open source) that renders chunks to PCM
-     buffers played by `AVAudioEngine` — same chunk/offset model, so positions and notes stay compatible.
-   - `MPNowPlayingInfoCenter` + `MPRemoteCommandCenter` for lock-screen and headphone controls (the web app already wires the
-     equivalent Media Session handlers to the Narrator).
-3. **Storage** — keep IndexedDB inside the WebView, or move `core/storage/db.ts` onto SQLite (`@capacitor-community/sqlite`)
-   behind the same functions. The JSON backup format moves libraries between the web and native apps.
-4. Select the engine at startup (`src/ui/engine.ts` is the single place that chooses it).
+- **`NativeSpeechEngine`** (`src/core/speech/nativeSpeechEngine.ts`) talks to **`NativeSpeechPlugin.swift`**
+  (`ios/App/App/`), which is registered in `MainViewController.swift`.
+- It implements `SequenceSpeechEngine`. Instead of speaking one sentence at a time (which needs JavaScript to be running),
+  the Narrator hands over **the rest of the book as one queue** (up to 4000 sentences, then it refills). That matters because
+  iOS suspends the web view in the background, but native code keeps running while audio plays.
+- The Swift side uses `AVSpeechSynthesizer` on an `AVAudioSession` with category `.playback` and mode `.spokenAudio`, plus
+  `UIBackgroundModes = audio`. That gives:
+  - background and locked-screen narration;
+  - `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` for Lock Screen, Control Center and headphone controls (play/pause,
+    previous/next chapter);
+  - pausing for calls and Siri, and resuming after them;
+  - a native sleep timer that runs in the background.
+- Word positions (`willSpeakRangeOfSpeechString`, in UTF-16 units, the same as JavaScript) are sent back as events.
+- The position is also saved in `UserDefaults`, so it survives the app being killed in the background. When a book opens,
+  the Player uses whichever saved position is newer.
+- In the native app, web-only parts are switched off (`src/ui/platform.ts`): the service worker, the install banner, wake lock
+  and Media Session. File export goes through `@capacitor/filesystem` and `@capacitor/share` (the share sheet).
 
-Nothing else in the app needs to change: the Narrator, chunker, importers, data model and backup format are engine-agnostic.
+### Future: offline neural voices
+An engine that renders sentences with an open-source neural TTS model (e.g. Piper or Kokoro via sherpa-onnx) into PCM buffers
+played by `AVAudioEngine` can implement the same `SequenceSpeechEngine` interface. Positions, notes and backups stay compatible
+because everything uses the same chapter + character offset coordinates.

@@ -3,6 +3,7 @@ import type { VoiceInfo } from '../../core/speech/engine';
 import type { SleepTimer } from '../../core/speech/narrator';
 import type { Annotation, AnnotationKind, Book, Chapter, HighlightColor } from '../../core/types';
 import { useSettings } from '../hooks/settings';
+import { isNativeApp } from '../platform';
 import { sortVoices } from '../hooks/useVoices';
 import { listeningHours } from './BookDetailsSheet';
 import { Icon } from './Icon';
@@ -77,7 +78,7 @@ export function AnnotationsSheet({
       lines.push('');
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
-    downloadBlob(blob, `${safeName(book.title)} - notes.md`);
+    void downloadBlob(blob, `${safeName(book.title)} - notes.md`);
   };
 
   return (
@@ -353,7 +354,22 @@ export function safeName(s: string) {
   return s.replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) || 'book';
 }
 
-export function downloadBlob(blob: Blob, name: string) {
+/**
+ * Saves a file for the user. In a browser it downloads; in the iOS app (where
+ * web downloads don't exist) it opens the share sheet: Save to Files, AirDrop, Mail…
+ */
+export async function downloadBlob(blob: Blob, name: string) {
+  if (isNativeApp()) {
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([import('@capacitor/filesystem'), import('@capacitor/share')]);
+    const data = await blobToBase64(blob);
+    const { uri } = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache });
+    try {
+      await Share.share({ title: name, files: [uri] });
+    } catch {
+      /* the user closed the share sheet */
+    }
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -362,4 +378,13 @@ export function downloadBlob(blob: Blob, name: string) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).slice(String(r.result).indexOf(',') + 1));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
 }

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { listBooks, listProgress } from '../../core/storage/db';
+import { SAMPLE_BOOK } from '../../core/sampleBook';
+import { listBooks, listProgress, saveImportedBook } from '../../core/storage/db';
 import { isIOS } from '../../core/speech/webSpeechEngine';
 import type { Book, Progress } from '../../core/types';
 import { navigate } from '../hooks/useRoute';
+import { isNativeApp } from '../platform';
 import { BookDetailsSheet, listeningHours } from './BookDetailsSheet';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
@@ -79,7 +81,7 @@ export function Library() {
     [books, progress],
   );
 
-  const showInstall = isIOS() && !isStandalone() && !hideInstall;
+  const showInstall = isIOS() && !isNativeApp() && !isStandalone() && !hideInstall;
 
   return (
     <div className="page">
@@ -125,9 +127,25 @@ export function Library() {
           </div>
           <h2>Your private audiobook shelf</h2>
           <p>Add a PDF, EPUB, Word (DOCX) or TXT book. It’s read aloud with your device’s free voices — nothing is uploaded, no account needed.</p>
-          <button className="btn btn-primary" onClick={importer.open}>
-            <Icon name="plus" size={18} /> Add your first book
-          </button>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={importer.open}>
+              <Icon name="plus" size={18} /> Add your first book
+            </button>
+            <button
+              className="btn"
+              onClick={async () => {
+                const text = SAMPLE_BOOK.chapters.map((c) => c.text).join('\n\n');
+                const book = await saveImportedBook(
+                  SAMPLE_BOOK,
+                  { name: 'Welcome to My Library.txt', size: text.length, type: 'text/plain', data: new Blob([text], { type: 'text/plain' }) },
+                  'Other',
+                );
+                navigate(`/book/${book.id}?play`);
+              }}
+            >
+              <Icon name="play" size={16} /> Try a sample book
+            </button>
+          </div>
           <div className="features">
             <div>
               <Icon name="shield" /> Files stay on this device, stored privately in the app.

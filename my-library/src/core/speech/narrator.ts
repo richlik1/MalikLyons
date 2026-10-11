@@ -1,6 +1,6 @@
 import type { Chapter, Position } from '../types';
 import { type Chunk, chunkAt, chunkText, wordStart } from './chunker';
-import type { SpeakOptions, SpeechEngine, SpeechErrorCode } from './engine';
+import { isSequenceEngine, type SequenceItem, type SpeakOptions, type SpeechEngine, type SpeechErrorCode } from './engine';
 
 export type NarratorStatus = 'idle' | 'playing' | 'paused' | 'ended';
 
@@ -24,10 +24,14 @@ interface NarratorOptions extends SpeakOptions {
   /** Injected for tests; defaults to `document.hidden`. */
   isHidden?: () => boolean;
   startTimeoutMs?: number;
+  /** Identifies the book for engines that save the position natively. */
+  key?: string;
 }
 
 const MAX_RETRIES_PER_CHUNK = 2;
 const MAX_CONSECUTIVE_FAILURES = 6;
+/** Sentences handed to a native queue at once (~10+ hours of listening). */
+const MAX_SEQUENCE_ITEMS = 4000;
 
 /**
  * Drives narration of a book: walks chunks and chapters, recovers from
@@ -158,6 +162,12 @@ export class Narrator {
   setSleepTimer(mode: 'off' | 'chapter' | number) {
     if (this.sleepTimer) clearTimeout(this.sleepTimer);
     this.sleepTimer = null;
+    if (isSequenceEngine(this.engine)) {
+      // The native engine keeps time even while the app is in the background.
+      this.engine.setSleepTimer(mode);
+      this.set({ sleep: mode === 'off' ? { mode: 'off' } : mode === 'chapter' ? { mode: 'chapter' } : { mode: 'time', endsAt: Date.now() + mode * 60_000 } });
+      return;
+    }
     if (mode === 'off') this.set({ sleep: { mode: 'off' } });
     else if (mode === 'chapter') this.set({ sleep: { mode: 'chapter' } });
     else {
@@ -169,7 +179,7 @@ export class Narrator {
 
   /** Call when the page becomes visible again: iOS stops speech in the background. */
   handleVisible() {
-    if (this.state.status !== 'playing') return;
+    if (this.state.status !== 'playing' || isSequenceEngine(this.engine)) return;
     if (!this.engine.isSpeaking()) {
       this.gen++;
       this.clearTimers(false);
@@ -217,6 +227,10 @@ export class Narrator {
   }
 
   private speakCurrent() {
+    if (isSequenceEngine(this.engine)) {
+      this.speakSequence();
+      return;
+    }
     const { chunks, chunkIndex, chapter } = this.state;
     const chunk = chunks[chunkIndex];
     if (!chunk) {
@@ -261,6 +275,87 @@ export class Narrator {
         this.onFailure(myGen, code, detail);
       },
     });
+  }
+
+  /**
+   * Native engines get the rest of the book as one queue so narration keeps
+   * going while the app is in the background; we just mirror its progress.
+   */
+  private speakSequence() {
+    if (!isSequenceEngine(this.engine)) return;
+    const { chapter, chunkIndex, offset } = this.state;
+    const items: SequenceItem[] = [];
+    const map: Array<{ chapter: number; chunkIndex: number; start: number }> = [];
+    for (let ch = chapter; ch < this.chapters.length && items.length < MAX_SEQUENCE_ITEMS; ch++) {
+      const chunks = this.chunksFor(ch);
+      const text = this.chapters[ch].text;
+      for (let i = ch === chapter ? chunkIndex : 0; i < chunks.length && items.length < MAX_SEQUENCE_ITEMS; i++) {
+        const c = chunks[i];
+        let from = c.start;
+        if (ch === chapter && i === chunkIndex) {
+          from = Math.max(c.start, wordStart(text, offset, c.start));
+          if (from >= c.end - 1) from = c.start;
+        }
+        items.push({ text: text.slice(from, c.end), chapter: ch, start: from });
+        map.push({ chapter: ch, chunkIndex: i, start: from });
+      }
+    }
+    this.clearTimers();
+    if (!items.length) {
+      this.gen++;
+      this.set({ status: 'ended', notice: null });
+      return;
+    }
+    const myGen = ++this.gen;
+    const live = () => myGen === this.gen;
+    this.engine.speakSequence(
+      this.opts.key ?? '',
+      items,
+      { voiceId: this.opts.voiceId, rate: this.opts.rate, pitch: this.opts.pitch },
+      {
+        onItemStart: (i) => {
+          const m = map[i];
+          if (!live() || !m) return;
+          this.set({ chapter: m.chapter, chunks: this.chunksFor(m.chapter), chunkIndex: m.chunkIndex, offset: m.start });
+        },
+        onBoundary: (i, ci) => {
+          const m = map[i];
+          if (!live() || !m || m.chapter !== this.state.chapter || m.chunkIndex !== this.state.chunkIndex) return;
+          if (m.start + ci > this.state.offset) this.set({ offset: m.start + ci });
+        },
+        onDone: () => {
+          if (!live()) return;
+          const last = map[map.length - 1];
+          const lastChunks = this.chunksFor(last.chapter);
+          if (last.chunkIndex + 1 < lastChunks.length) {
+            this.set({ chapter: last.chapter, chunks: lastChunks, chunkIndex: last.chunkIndex + 1, offset: lastChunks[last.chunkIndex + 1].start });
+            this.speakSequence();
+          } else if (last.chapter + 1 < this.chapters.length) {
+            this.set({ chapter: last.chapter + 1, chunks: this.chunksFor(last.chapter + 1), chunkIndex: 0, offset: 0 });
+            this.speakSequence();
+          } else {
+            this.gen++;
+            this.set({ status: 'ended', notice: null, sleep: { mode: 'off' } });
+          }
+        },
+        onPaused: (reason) => {
+          if (!live()) return;
+          const notice =
+            reason === 'interrupted'
+              ? 'Narration was interrupted by a call or another app. Tap play to continue.'
+              : reason === 'sleep'
+                ? 'Sleep timer ended. Tap play to continue.'
+                : reason === 'sleep-chapter'
+                  ? 'Sleep timer: stopped at the end of the chapter.'
+                  : null;
+          this.set({ status: 'paused', notice, sleep: reason.startsWith('sleep') ? { mode: 'off' } : this.state.sleep });
+        },
+        onResumed: () => {
+          if (live()) this.set({ status: 'playing', notice: null });
+        },
+      },
+      this.chapters.map((c) => c.title),
+    );
   }
 
   /** If the engine never reports the end of an utterance, move on anyway. */
