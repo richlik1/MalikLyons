@@ -43,7 +43,7 @@ export class SupabaseTryOnRepo implements TryOnRepo {
     };
   }
 
-  async getUsage(userId: string, now: Date): Promise<UsageSnapshot> {
+  async getUsage(userId: string, merchantId: string, now: Date): Promise<UsageSnapshot> {
     const minuteAgo = new Date(now.getTime() - 60_000).toISOString();
     const dayAgo = new Date(now.getTime() - 86_400_000).toISOString();
     const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
@@ -59,14 +59,41 @@ export class SupabaseTryOnRepo implements TryOnRepo {
       return count ?? 0;
     };
 
-    const [userLastMinute, userLastDay, spend] = await Promise.all([
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const [userLastMinute, userLastDay, spend, merchant, merchantUsed] = await Promise.all([
       countSince(minuteAgo),
       countSince(dayAgo),
       this.admin.from("generations").select("cost_usd").gte("created_at", utcMidnight),
+      this.admin
+        .from("merchants")
+        .select("status, monthly_generation_quota, plans(included_generations, hard_cap)")
+        .eq("id", merchantId)
+        .maybeSingle(),
+      this.admin
+        .from("generations")
+        .select("id", { count: "exact", head: true })
+        .eq("merchant_id", merchantId)
+        .in("status", ["pending", "succeeded"])
+        .gte("created_at", monthStart),
     ]);
     if (spend.error) throw spend.error;
+    if (merchant.error) throw merchant.error;
+    if (merchantUsed.error) throw merchantUsed.error;
     const globalSpendTodayUsd = (spend.data ?? []).reduce((sum, r) => sum + Number(r.cost_usd ?? 0), 0);
-    return { userLastMinute, userLastDay, globalSpendTodayUsd };
+    const plan = merchant.data?.plans as unknown as { included_generations: number; hard_cap: boolean } | null;
+    return {
+      userLastMinute,
+      userLastDay,
+      globalSpendTodayUsd,
+      merchant: merchant.data
+        ? {
+            used: merchantUsed.count ?? 0,
+            included: merchant.data.monthly_generation_quota ?? plan?.included_generations ?? 0,
+            hardCap: plan?.hard_cap ?? true,
+            status: merchant.data.status === "suspended" ? "suspended" : "active",
+          }
+        : undefined,
+    };
   }
 
   async createGeneration(row: NewGeneration): Promise<string> {
@@ -86,6 +113,14 @@ export class SupabaseTryOnRepo implements TryOnRepo {
       .single();
     if (error) throw error;
     return data.id;
+  }
+
+  async recordUsage(row: { merchantId: string; generationId: string; unitCostUsd: number; billingPeriod: string }): Promise<void> {
+    const { error } = await this.admin.from("usage_events").upsert(
+      { merchant_id: row.merchantId, generation_id: row.generationId, unit_cost_usd: row.unitCostUsd, billing_period: row.billingPeriod },
+      { onConflict: "generation_id", ignoreDuplicates: true },
+    );
+    if (error) throw error;
   }
 
   async completeGeneration(id: string, patch: GenerationPatch): Promise<void> {

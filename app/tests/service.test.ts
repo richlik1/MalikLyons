@@ -11,7 +11,9 @@ class FakeRepo implements TryOnRepo {
   completed: { id: string; patch: GenerationPatch }[] = [];
   photo = { id: "p1", storagePath: `${USER}/p1.jpg`, mimeType: "image/jpeg", expiresAt: new Date("2026-11-01"), deletedAt: null as Date | null };
   product = { id: "g1", merchantId: "m1", name: "Box Hoodie", category: "tops" as const, imagePath: "m/g1.png", purchaseUrl: "https://shop.example/hoodie", isActive: true };
-  usage = { userLastMinute: 0, userLastDay: 0, globalSpendTodayUsd: 0 };
+  usage: import("@/lib/limits").UsageSnapshot = { userLastMinute: 0, userLastDay: 0, globalSpendTodayUsd: 0 };
+  usageRecorded: { merchantId: string; generationId: string; unitCostUsd: number; billingPeriod: string }[] = [];
+  async recordUsage(row: { merchantId: string; generationId: string; unitCostUsd: number; billingPeriod: string }) { this.usageRecorded.push(row); }
   async getPhoto(userId: string) { return userId === USER ? this.photo : null; }
   async getProduct(id: string) { return id === this.product.id ? this.product : null; }
   async getUsage() { return this.usage; }
@@ -44,6 +46,31 @@ describe("runTryOn", () => {
     expect(blobs.uploads).toEqual([`tryon-results/${USER}/gen-1.png`]);
     expect(repo.created[0]).toMatchObject({ provider: "test", reservedCostUsd: 0.075 });
     expect(repo.completed[0].patch).toMatchObject({ status: "succeeded", costUsd: 0.075, providerJobId: "job-7" });
+    expect(repo.usageRecorded).toEqual([{ merchantId: "m1", generationId: "gen-1", unitCostUsd: 0.075, billingPeriod: "2026-10-01" }]);
+  });
+
+  it("blocks when the merchant's hard-capped monthly allowance is used up, before spending", async () => {
+    repo.usage.merchant = { used: 500, included: 500, hardCap: true, status: "active" };
+    const res = await runTryOn(req, { repo, blobs, limits, now: () => NOW, provider: provider(async () => { throw new Error("must not be called"); }) });
+    expect(res).toMatchObject({ ok: false, status: 429, code: "merchant_quota" });
+    expect(repo.created).toHaveLength(0);
+  });
+
+  it("allows overage when the plan is not hard-capped", async () => {
+    repo.usage.merchant = { used: 1200, included: 1000, hardCap: false, status: "active" };
+    const res = await runTryOn(req, { repo, blobs, limits, now: () => NOW, provider: provider(async () => ({ bytes: new Uint8Array([1]), mimeType: "image/png" })) });
+    expect(res.ok).toBe(true);
+  });
+
+  it("blocks suspended merchants", async () => {
+    repo.usage.merchant = { used: 0, included: 500, hardCap: true, status: "suspended" };
+    const res = await runTryOn(req, { repo, blobs, limits, now: () => NOW, provider: provider(async () => { throw new Error("no"); }) });
+    expect(res).toMatchObject({ ok: false, code: "merchant_suspended" });
+  });
+
+  it("does not record usage for failed generations", async () => {
+    await runTryOn(req, { repo, blobs, limits, now: () => NOW, provider: provider(async () => { throw new ProviderError("timeout", "slow", true); }) });
+    expect(repo.usageRecorded).toHaveLength(0);
   });
 
   it("returns 503 honestly when no provider is configured", async () => {

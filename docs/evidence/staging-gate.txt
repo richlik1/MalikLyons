@@ -1,0 +1,9 @@
+# Staging access gate — real 'next start' server with APP_ENV=staging (local) — 2026-10-12T14:52:07Z
+GET / (no auth): 401
+GET / (wrong password): 401
+GET / (correct password): 200
+X-Robots-Tag: noindex, nofollow
+POST /api/waitlist (no auth): 401
+POST /api/experiments/assign (bypass, bad body): 400
+GET /api/health (public): {"ok":false}  [ok=false is expected: this local config is not valid for staging]
+robots.txt: User-Agent: * Disallow: /  

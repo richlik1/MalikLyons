@@ -1,0 +1,41 @@
+# Integration tests — LOCAL STACK (not hosted Supabase) — 2026-10-12T14:51:25Z
+Environment: Node v22.22.0, Next 15.5.27, local stack images supabase/postgres:15.8.1.060 gotrue:v2.170.0 storage-api:v1.19.3 postgrest:v12.2.8
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a shopper cannot read another shopper's photo rows 17ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a shopper cannot download, overwrite, list or delete another shopper's stored photo 161ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a shopper cannot read another shopper's try-on results 42ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > users cannot write results directly to the results bucket 25ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > users cannot insert generation rows (cost/usage is server-controlled) 9ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > users can toggle saved but cannot change status, cost or result path 24ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a shopper cannot change another shopper's saved flag 5ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a user cannot escalate their own role 10ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > feedback can only be left on your own generations 15ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a merchant cannot create or modify products in another merchant's catalog 26ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a merchant cannot read another merchant's account or private stats 21ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > merchants cannot see shopper photos, even of shoppers who tried their products 19ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > admins can read generation logs but NOT personal photos 25ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > anonymous visitors see active products only and no waitlist or analytics data 38ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > a non-admin cannot read waitlist, conversion or cost views 14ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > F1: shoppers cannot read internal cost or raw provider errors on their own generations 18ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > F2: merchants cannot change their own plan or quota 18ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > F3: shoppers cannot extend photo retention 13ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > deleting a user who has generations succeeds and detaches the usage log 185ms
+ ✓ tests/integration/tenancy.int.test.ts > tenant isolation (RLS + storage policies) > deleting a user cascades their personal rows 179ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > experiments > merchants cannot create experiments for another merchant 8ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > experiments > merchants cannot read another merchant's experiments or summaries 18ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > experiments > merchants cannot set status/salt directly (server-controlled transitions) 13ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > experiments > raw assignments/events are not writable or readable by merchants 9ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > experiments > the summary counts intent-to-treat per arm and dedupes orders 43ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > usage ledger & quotas > plans are publicly readable (prices are marked as test prices) 5ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > usage ledger & quotas > the ledger is append-only and dedupes per generation 26ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > usage ledger & quotas > users cannot write or read the raw ledger 9ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > usage ledger & quotas > merchant usage summary: own store only, with plan allowance 12ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > usage ledger & quotas > merchants cannot change their billing status 5ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > pilot program > merchants see their enrollment but not internal notes or conversion outcome 25ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > pilot program > the database enforces the pilot product limit 30ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > pilot program > merchant feedback: own store only, one per week 25ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > pilot program > only admins see the pilot scorecard 17ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > Shopify tables > are inaccessible to users, including admins via the API 26ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > Shopify tables > merchants see only their own connection status (never the token) 18ms
+ ✓ tests/integration/growth.int.test.ts > experiments, usage ledger, pilot program, Shopify tables > Shopify tables > rejects invalid shop domains at the database level 5ms
+ Test Files  2 passed (2)
+      Tests  37 passed (37)

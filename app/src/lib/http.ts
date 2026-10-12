@@ -21,13 +21,31 @@ export async function parseJson<T>(req: Request, schema: ZodSchema<T>): Promise<
   return { ok: true, data: parsed.data };
 }
 
-/** Rejects cross-site form posts to state-changing JSON endpoints. */
+/**
+ * Rejects cross-site requests to state-changing endpoints (CSRF defense alongside SameSite
+ * cookies). Compares the Origin header with the host the client actually addressed (Host /
+ * X-Forwarded-Host) and the configured site URL — not req.url, which can differ behind proxies.
+ */
 export function sameOrigin(req: Request): boolean {
   const origin = req.headers.get("origin");
-  if (!origin) return true; // same-origin fetches from some browsers omit Origin on GET; POSTs from our UI include it
+  if (!origin) return true; // non-browser clients and some same-origin requests omit Origin
+  let originHost: string;
   try {
-    return new URL(origin).host === new URL(req.url).host;
+    originHost = new URL(origin).host;
   } catch {
     return false;
   }
+  return allowedHosts(req).has(originHost);
+}
+
+export function allowedHosts(req: Request): Set<string> {
+  const hosts = new Set<string>();
+  const add = (v: string | null | undefined) => v && v.split(",").forEach((h) => h.trim() && hosts.add(h.trim()));
+  add(req.headers.get("x-forwarded-host"));
+  add(req.headers.get("host"));
+  try { hosts.add(new URL(req.url).host); } catch {}
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    try { hosts.add(new URL(process.env.NEXT_PUBLIC_SITE_URL).host); } catch {}
+  }
+  return hosts;
 }

@@ -1,0 +1,6 @@
+api_version = "2025-10"
+
+[[extensions]]
+type = "theme"
+name = "TrendSet try-on"
+handle = "trendset-tryon"

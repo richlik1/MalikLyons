@@ -1,0 +1,32 @@
+{% comment %}
+  TrendSet try-on button (TEMPLATE — not yet verified on a development store).
+  Shows a "See it on you" button on product pages. If an experiment ID is set, visitors are
+  randomly assigned and only the treatment group sees the button (control sees nothing).
+{% endcomment %}
+<div
+  class="trendset-tryon"
+  data-trendset-app="{{ block.settings.app_url | escape }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-product="{{ product.id }}"
+  data-experiment="{{ block.settings.experiment_id | escape }}"
+  hidden
+>
+  <a class="button button--secondary trendset-tryon__button" target="_blank" rel="noopener">
+    {{ block.settings.label | default: 'See it on you' | escape }}
+  </a>
+  <p class="trendset-tryon__note">AI preview for style reference only — not a size or fit prediction.</p>
+</div>
+<script src="{{ 'trendset-widget.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "TrendSet try-on",
+  "target": "section",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "url", "id": "app_url", "label": "TrendSet URL" },
+    { "type": "text", "id": "label", "label": "Button label", "default": "See it on you" },
+    { "type": "text", "id": "experiment_id", "label": "Experiment ID (optional)" }
+  ]
+}
+{% endschema %}

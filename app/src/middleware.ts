@@ -1,14 +1,32 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { checkBasicAuth, gateEnabled, isBypassed } from "@/lib/site-access";
 
-// Refreshes the Supabase session cookie and guards signed-in areas.
+// 1) Private-site gate for staging / pre-launch (HTTP Basic auth, noindex).
+// 2) Refreshes the Supabase session cookie and guards signed-in areas.
 const PROTECTED = ["/try-on", "/account", "/studio", "/admin"];
 
 export async function middleware(request: NextRequest) {
+  const env = process.env as Record<string, string | undefined>;
+  const gated = gateEnabled(env);
+  const path = request.nextUrl.pathname;
+
+  if (gated && !isBypassed(path) && !checkBasicAuth(request.headers.get("authorization"), env.SITE_ACCESS_PASSWORD)) {
+    return new NextResponse("TrendSet staging — authorized testers only.", {
+      status: 401,
+      headers: { "WWW-Authenticate": 'Basic realm="TrendSet staging", charset="UTF-8"', "X-Robots-Tag": "noindex, nofollow" },
+    });
+  }
+
   let response = NextResponse.next({ request });
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return response;
+  const finish = (res: NextResponse) => {
+    if (gated) res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return res;
+  };
+
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key || path.startsWith("/api/")) return finish(response);
 
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -22,15 +40,15 @@ export async function middleware(request: NextRequest) {
   });
   const { data } = await supabase.auth.getUser();
 
-  if (!data.user && PROTECTED.some((p) => request.nextUrl.pathname.startsWith(p))) {
+  if (!data.user && PROTECTED.some((p) => path.startsWith(p))) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
-    login.search = `?next=${encodeURIComponent(request.nextUrl.pathname)}`;
-    return NextResponse.redirect(login);
+    login.search = `?next=${encodeURIComponent(path + request.nextUrl.search)}`;
+    return finish(NextResponse.redirect(login));
   }
-  return response;
+  return finish(response);
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/events|api/waitlist|api/cron).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

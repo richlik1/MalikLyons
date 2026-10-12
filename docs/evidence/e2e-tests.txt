@@ -1,0 +1,16 @@
+# End-to-end tests — built Next.js app on the LOCAL STACK; AI provider = LOCAL FASHN CONTRACT STUB (scripts/fashn-stub.mjs), NOT the real FASHN API — 2026-10-12T14:52:01Z
+Environment: Node v22.22.0, Next 15.5.27, local stack images supabase/postgres:15.8.1.060 gotrue:v2.170.0 storage-api:v1.19.3 postgrest:v12.2.8
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > serves the landing page without performance claims 28ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > records landing events and waitlist signups (duplicate emails look identical) 66ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > rejects photo uploads without consent and non-images disguised as images 35ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > stores a consented photo privately 98ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > generates a try-on through the provider pipeline (STUBBED provider), meters usage and stores the result 3189ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > records the click-through to the merchant's product page 34ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > does not let another user save, click or delete someone else's look or photo 244ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > enforces the merchant's monthly allowance before calling the provider 57ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > runs a randomized experiment: CORS-restricted assignment, events, and order attribution via a signed Shopify webhook 261ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > deleting a photo removes it and its results from storage 85ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > deleting the account removes the user and their storage folders 81ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > exposes a health report only with the cron secret 29ms
+ Test Files  1 passed (1)
+      Tests  12 passed (12)

@@ -1,5 +1,7 @@
 # Financial Model (illustrative)
 
+> **Correction (12 Oct 2026):** see [`13-billing-architecture.md` §3](13-billing-architecture.md#3-corrected-unit-economics). It adds billing-platform and app-store fees. It also shows that **Growth and Pro miss the 60% margin gate at full use on on-demand AI pricing** (Pro: 39%), and that the Pro overage of $0.12 is too low.
+
 > **Every number on this page is an assumption or estimate unless marked Verified.** Prices are hypotheses to test in pilots, not validated market rates. Raw scenario output: [`data/financial-model.csv`](data/financial-model.csv).
 
 ## 1. Unit cost per successful try-on

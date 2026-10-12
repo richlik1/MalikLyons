@@ -1,0 +1,22 @@
+# Copy to shopify.app.toml and fill in. Do not commit real client IDs for production apps.
+client_id = "REPLACE_ME"
+name = "TrendSet Try-On"
+application_url = "https://staging.example.com/studio"
+embedded = false
+
+[access_scopes]
+scopes = "read_products,read_orders"
+
+[auth]
+redirect_urls = ["https://staging.example.com/api/shopify/callback"]
+
+[webhooks]
+api_version = "2025-10"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled", "orders/create"]
+  uri = "https://staging.example.com/api/shopify/webhooks"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "https://staging.example.com/api/shopify/webhooks"

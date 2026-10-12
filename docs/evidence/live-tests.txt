@@ -1,0 +1,5 @@
+# LIVE tests (real external services) — 2026-10-12T14:47:02Z
+ ↓ tests/live/fashn.live.test.ts (1 test | 1 skipped)
+ Test Files  1 skipped (1)
+      Tests  1 skipped (1)
+Result: SKIPPED — no FASHN_API_KEY / consented test images available in this environment. No live call was made.

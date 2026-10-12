@@ -45,8 +45,8 @@ export default function LandingPage() {
           <p className="eyebrow">What pilot brands get</p>
           <ul className="mt-3 space-y-2 text-ink-soft">
             <li>• Free try-on for up to 20 products during a 6-week pilot</li>
-            <li>• A weekly report: try-ons, completion rate, click-throughs to your store</li>
-            <li>• A controlled test design so you can tell lift from noise</li>
+            <li>• A weekly report: try-ons, completion rate, ratings and click-throughs to your product pages</li>
+            <li>• Help designing a controlled test, so any effect on sales can be told apart from noise</li>
             <li>• Direct line to the founding team</li>
           </ul>
         </div>
@@ -62,7 +62,7 @@ export default function LandingPage() {
 
       <section id="waitlist" className="container-page scroll-mt-20 py-10">
         <h2 className="text-2xl font-black tracking-tight sm:text-3xl">Apply for the merchant pilot</h2>
-        <p className="mb-6 mt-2 text-ink-soft">Takes about a minute. We reply to every application.</p>
+        <p className="mb-6 mt-2 text-ink-soft">A few questions about your store.</p>
         <WaitlistForm />
       </section>
     </>

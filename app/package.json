@@ -8,7 +8,13 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:env": "node --experimental-strip-types --no-warnings scripts/check-env.ts",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "stack:up": "scripts/local-stack.sh up",
+    "stack:down": "scripts/local-stack.sh down",
+    "test:live": "vitest run -c vitest.live.config.ts",
+    "test:e2e": "vitest run -c vitest.e2e.config.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.6.1",

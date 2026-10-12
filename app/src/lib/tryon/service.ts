@@ -1,3 +1,4 @@
+import { billingPeriod } from "../billing";
 import { evaluateLimits, type LimitConfig, type UsageSnapshot } from "../limits";
 import { ProviderError, type GarmentCategory, type TryOnProvider } from "../providers/types";
 
@@ -45,9 +46,11 @@ export interface GenerationPatch {
 export interface TryOnRepo {
   getPhoto(userId: string, photoId: string): Promise<PhotoRecord | null>;
   getProduct(productId: string): Promise<ProductRecord | null>;
-  getUsage(userId: string, now: Date): Promise<UsageSnapshot>;
+  getUsage(userId: string, merchantId: string, now: Date): Promise<UsageSnapshot>;
   createGeneration(row: NewGeneration): Promise<string>;
   completeGeneration(id: string, patch: GenerationPatch): Promise<void>;
+  /** Append one billable unit to the usage ledger (idempotent per generation). */
+  recordUsage(row: { merchantId: string; generationId: string; unitCostUsd: number; billingPeriod: string }): Promise<void>;
 }
 
 export interface BlobStore {
@@ -83,7 +86,7 @@ const USER_MESSAGES: Record<string, string> = {
   content_rejected: "This image was declined by the safety filter. Please try a different photo.",
   rate_limited: "Our AI provider is busy. Please try again in a moment.",
   timeout: "The preview took too long. Please try again.",
-  provider_error: "Something went wrong generating your preview. You have not been charged a try-on.",
+  provider_error: "Something went wrong generating your preview. This attempt does not count toward your daily limit.",
   not_configured: "Virtual try-on is temporarily unavailable.",
 };
 
@@ -113,7 +116,7 @@ export async function runTryOn(
     return { ok: false, status: 422, code: "unsupported_category", message: "Try-on isn't available for this item yet." };
   }
 
-  const usage = await repo.getUsage(req.userId, now);
+  const usage = await repo.getUsage(req.userId, product.merchantId, now);
   const decision = evaluateLimits(usage, deps.limits, provider.costPerImageUsd);
   if (!decision.allowed) {
     log("tryon.limited", { userId: req.userId, reason: decision.reason });
@@ -155,6 +158,10 @@ export async function runTryOn(
       costUsd: provider.costPerImageUsd,
       providerJobId: output.providerJobId,
     });
+    // Metering failure must not fail the shopper's request, but it must be visible.
+    await repo
+      .recordUsage({ merchantId: product.merchantId, generationId, unitCostUsd: provider.costPerImageUsd, billingPeriod: billingPeriod(now) })
+      .catch((e) => log("usage.record_failed", { generationId, error: String(e) }));
     log("tryon.succeeded", { generationId, provider: provider.id, latencyMs });
 
     return {

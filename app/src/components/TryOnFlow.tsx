@@ -15,9 +15,9 @@ export interface CatalogItem {
 type Photo = { id: string; previewUrl: string; expiresAt: string };
 type Result = { generationId: string; resultUrl: string; personUrl: string; product: { id: string; name: string; purchaseUrl: string } };
 
-export function TryOnFlow({ catalog, existingPhoto, providerReady }: { catalog: CatalogItem[]; existingPhoto: Photo | null; providerReady: boolean }) {
+export function TryOnFlow({ catalog, existingPhoto, providerReady, initialProduct = null }: { catalog: CatalogItem[]; existingPhoto: Photo | null; providerReady: boolean; initialProduct?: string | null }) {
   const [photo, setPhoto] = useState<Photo | null>(existingPhoto);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialProduct);
   const [status, setStatus] = useState<"idle" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -81,7 +81,7 @@ export function TryOnFlow({ catalog, existingPhoto, providerReady }: { catalog: 
         <button className="btn-accent w-full" disabled={!providerReady || !photo || !selected || status === "generating"} onClick={generate}>
           {status === "generating" ? "Generating your preview…" : "3 · Generate try-on"}
         </button>
-        {status === "generating" && <p className="text-sm text-ink-muted" role="status">This usually takes 10–30 seconds.</p>}
+        {status === "generating" && <p className="text-sm text-ink-muted" role="status">This can take a little while. Please keep this page open.</p>}
         {error && <p className="error-text" role="alert">{error}</p>}
       </section>
 
@@ -188,7 +188,15 @@ function ResultView({ result }: { result: Result }) {
       <p className="notice mt-4">{FIT_DISCLAIMER}</p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <a className="btn-primary" href={result.product.purchaseUrl} target="_blank" rel="noopener noreferrer">Shop this item ↗</a>
+        <a
+          className="btn-primary"
+          href={result.product.purchaseUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => { fetch(`/api/generations/${result.generationId}/click`, { method: "POST", keepalive: true }).catch(() => {}); }}
+        >
+          Shop this item ↗
+        </a>
         <button className="btn-ghost" onClick={toggleSave}>{saved ? "Saved ✓" : "Save look"}</button>
       </div>
 

@@ -22,6 +22,8 @@ export function createProvider(env: Env = process.env): TryOnProvider | null {
         apiKey: env.FASHN_API_KEY,
         model: env.FASHN_MODEL,
         costPerImageUsd: num(env.FASHN_COST_PER_IMAGE_USD),
+        // Local contract testing only; check:env rejects overrides in staging/production.
+        baseUrl: env.FASHN_BASE_URL || undefined,
       });
     }
     if (choice === "google-vertex") {

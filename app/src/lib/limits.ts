@@ -7,15 +7,23 @@ export interface LimitConfig {
   globalDailyBudgetUsd: number;
 }
 
+export interface MerchantQuota {
+  used: number;        // pending + succeeded generations this billing period
+  included: number;    // plan allowance (or merchant override)
+  hardCap: boolean;    // block at the allowance instead of allowing overage
+  status: "active" | "suspended";
+}
+
 export interface UsageSnapshot {
   userLastMinute: number;
   userLastDay: number;
   globalSpendTodayUsd: number;
+  merchant?: MerchantQuota;
 }
 
 export type LimitDecision =
   | { allowed: true }
-  | { allowed: false; reason: "user_minute" | "user_day" | "global_budget"; message: string; retryAfterSeconds: number };
+  | { allowed: false; reason: "user_minute" | "user_day" | "global_budget" | "merchant_quota" | "merchant_suspended"; message: string; retryAfterSeconds: number };
 
 export function evaluateLimits(usage: UsageSnapshot, cfg: LimitConfig, nextCostUsd: number): LimitDecision {
   if (usage.globalSpendTodayUsd + nextCostUsd > cfg.globalDailyBudgetUsd) {
@@ -24,6 +32,17 @@ export function evaluateLimits(usage: UsageSnapshot, cfg: LimitConfig, nextCostU
       reason: "global_budget",
       message: "Try-on is paused for today while we stay within our pilot budget. Please try again tomorrow.",
       retryAfterSeconds: secondsUntilUtcMidnight(),
+    };
+  }
+  if (usage.merchant?.status === "suspended") {
+    return { allowed: false, reason: "merchant_suspended", message: "Try-on isn't available for this store right now.", retryAfterSeconds: 3600 };
+  }
+  if (usage.merchant?.hardCap && usage.merchant.used >= usage.merchant.included) {
+    return {
+      allowed: false,
+      reason: "merchant_quota",
+      message: "This store has reached its try-on allowance for the month.",
+      retryAfterSeconds: secondsUntilNextUtcMonth(),
     };
   }
   if (usage.userLastMinute >= cfg.perUserPerMinute) {
@@ -50,6 +69,11 @@ export function limitConfigFromEnv(env: Record<string, string | undefined> = pro
 
 function secondsUntilUtcMidnight(now = new Date()): number {
   const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
+}
+
+function secondsUntilNextUtcMonth(now = new Date()): number {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
   return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
 }
 

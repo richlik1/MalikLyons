@@ -1,5 +1,10 @@
 # Deployment Instructions
 
+> **Update (audit, 12 Oct 2026):**
+> - Apply **all** migrations `0001`–`0007` in order (`supabase db push`).
+> - Run `npm run check:env` before every deploy.
+> - Staging is private by default. See §6 and [`14-production-readiness-audit.md`](14-production-readiness-audit.md).
+
 Stack: **Next.js 15 on Vercel** + **Supabase** (Auth, Postgres, Storage) + **FASHN** or **Google Vertex AI**.
 
 ## 1. Supabase
@@ -68,3 +73,35 @@ Without Supabase variables, the landing page renders, but sign-in, upload and tr
 - [ ] DPA signed with the AI vendor.
 - [ ] Cron purge tested: `curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/purge`
 - [ ] At least one merchant product uploaded with an https purchase URL.
+
+## 6. Private staging (added in the production-readiness audit)
+
+1. Vercel environment variables: `APP_ENV=staging`, `SITE_ACCESS_MODE=private` and `SITE_ACCESS_PASSWORD` (≥16 chars; share it only with testers). Plus everything in `app/.env.example`.
+2. `vercel env pull .env.staging && set -a && . ./.env.staging && set +a && npm run check:env`. It must print `environment OK`.
+3. Apply migrations to the staging project: `npx supabase link --project-ref <ref> && npx supabase db push`.
+4. Verify after deploy:
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}\n" https://<staging>/               # 401 (private)
+   curl -s -u t:$SITE_ACCESS_PASSWORD -I https://<staging>/ | grep -i robots  # noindex
+   curl -s -H "Authorization: Bearer $CRON_SECRET" https://<staging>/api/health  # all checks true
+   ```
+5. Run the suites against staging and save the outputs to `docs/evidence/` labeled **LIVE**:
+   ```bash
+   npm run test:integration   # with staging NEXT_PUBLIC_SUPABASE_URL / keys
+   npm run test:live          # FASHN_API_KEY + LIVE_PERSON_IMAGE + LIVE_GARMENT_IMAGE
+   E2E_BASE_URL=https://<staging> E2E_BASIC_AUTH="tester:$SITE_ACCESS_PASSWORD" npm run test:e2e   # FASHN_BASE_URL must be unset
+   ```
+6. **Do not** set `PUBLIC_LAUNCH_APPROVED=true` or `BILLING_MODE` beyond `shadow`. Those are explicit launch decisions.
+
+## 7. Local stack (integration and E2E tests without cloud credentials)
+
+```bash
+cd app
+npm run stack:up                      # official Supabase images: Postgres, Auth, Storage, PostgREST
+node scripts/dev-gateway.mjs &        # :54321 (stand-in for Kong)
+node scripts/fashn-stub.mjs &         # :54340 FASHN CONTRACT STUB (no AI)
+set -a; eval "$(scripts/local-stack.sh env)"; set +a
+npm run test:integration
+```
+
+`supabase start` is not used because its Realtime container fails on hosts without IPv6. The script runs the same images directly. Results are **local-stack** evidence, not hosted-Supabase evidence.

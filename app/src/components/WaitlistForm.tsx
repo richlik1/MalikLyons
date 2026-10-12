@@ -38,7 +38,7 @@ export function WaitlistForm() {
     return (
       <div className="card" role="status">
         <p className="text-lg font-semibold">You&apos;re on the list.</p>
-        <p className="mt-1 text-ink-soft">We&apos;re recruiting a small group of pilot brands and will email you within a week to schedule a 20-minute call.</p>
+        <p className="mt-1 text-ink-soft">We&apos;re recruiting a small group of pilot brands. If your brand is a fit for the current pilot, we&apos;ll contact you by email.</p>
       </div>
     );
   }
