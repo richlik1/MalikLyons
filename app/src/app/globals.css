@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-paper text-ink antialiased; }
+  :focus-visible { @apply outline outline-2 outline-offset-2 outline-ink; }
+}
+
+@layer components {
+  .container-page { @apply mx-auto w-full max-w-5xl px-4 sm:px-6; }
+  .card { @apply rounded-card border border-line bg-paper-raised p-5; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-ink text-paper hover:bg-ink-soft; }
+  .btn-accent { @apply btn bg-accent text-accent-ink hover:brightness-95; }
+  .btn-ghost { @apply btn border border-line bg-paper-raised text-ink hover:bg-paper-sunken; }
+  .btn-danger { @apply btn border border-danger/30 bg-paper-raised text-danger hover:bg-danger/5; }
+  .field { @apply block w-full min-h-[44px] rounded-xl border border-line bg-paper-raised px-3 text-base placeholder:text-ink-muted focus:border-ink focus:outline-none; }
+  .label { @apply mb-1 block text-sm font-medium text-ink-soft; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted; }
+  .notice { @apply rounded-xl border border-line bg-paper-sunken px-4 py-3 text-sm text-ink-soft; }
+  .error-text { @apply text-sm text-danger; }
+}

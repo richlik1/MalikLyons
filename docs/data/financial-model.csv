@@ -1,0 +1,19 @@
+"# ALL VALUES ARE ASSUMPTIONS/ESTIMATES, NOT VALIDATED. Prices are hypotheses to test."
+scenario,tier,price_usd_mo,included_generations,utilization,generations_used,api_cost_per_image,api_cost,payments_plus_infra,cogs,gross_margin
+Conservative,Starter,49,500,1.0,500,0.075,37.5,3.72,41.22,16%
+Conservative,Growth,149,2000,1.0,2000,0.075,150.0,6.62,156.62,-5%
+Conservative,Pro,399,6000,1.0,6000,0.075,450.0,13.87,463.87,-16%
+Base,Starter,49,500,0.5,250,0.06,15.0,3.72,18.72,62%
+Base,Growth,149,2000,0.5,1000,0.06,60.0,6.62,66.62,55%
+Base,Pro,399,6000,0.5,3000,0.06,180.0,13.87,193.87,51%
+Aggressive,Starter,49,500,0.3,150,0.049,7.35,3.72,11.07,77%
+Aggressive,Growth,149,2000,0.3,600,0.049,29.4,6.62,36.02,76%
+Aggressive,Pro,399,6000,0.3,1800,0.049,88.2,13.87,102.07,74%
+
+scenario,fixed_cost_case,blended_arpu,blended_gm,monthly_churn,cac,ltv,cac_payback_months,fixed_costs_mo,breakeven_merchants
+Conservative,Lean (founders unpaid),114.0,-4%,0.08,600,-51,-146.1,1500,-365
+Conservative,Funded (2 FTE + tools),114.0,-4%,0.08,600,-51,-146.1,30000,-7306
+Base,Lean (founders unpaid),114.0,56%,0.05,300,1268,4.7,1500,24
+Base,Funded (2 FTE + tools),114.0,56%,0.05,300,1268,4.7,30000,473
+Aggressive,Lean (founders unpaid),114.0,76%,0.03,150,2878,1.7,1500,17
+Aggressive,Funded (2 FTE + tools),114.0,76%,0.03,150,2878,1.7,30000,347
