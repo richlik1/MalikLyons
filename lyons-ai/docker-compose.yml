@@ -1,0 +1,97 @@
+# LYONS AI production stack: agent + Postgres + n8n + Caddy (TLS).
+# Only Caddy is reachable from the internet, and it exposes ONLY the Google
+# OAuth callback. n8n and Postgres are on the internal network; reach the n8n
+# editor through an SSH tunnel (see docs/DEPLOYMENT.md).
+name: lyons-ai
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lyons
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: lyons
+      N8N_DB_PASSWORD: ${N8N_DB_PASSWORD:?set N8N_DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres-init.sh:/docker-entrypoint-initdb.d/10-n8n.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lyons -d lyons"]
+      interval: 10s
+      retries: 5
+    networks: [internal]
+
+  lyons-ai:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://lyons:${POSTGRES_PASSWORD}@postgres:5432/lyons
+      HTTP_PORT: "8080"
+      ARTIFACTS_DIR: /data/artifacts
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - artifacts:/data/artifacts
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 2g
+    pids_limit: 512
+    ports:
+      - "127.0.0.1:8080:8080" # local debugging only; not public
+    networks: [internal, egress]
+
+  n8n:
+    image: n8nio/n8n:2.43.5
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:?set N8N_DB_PASSWORD in .env}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in .env}
+      GENERIC_TIMEZONE: ${TIMEZONE:-America/New_York}
+      TZ: ${TIMEZONE:-America/New_York}
+      N8N_SECURE_COOKIE: "false" # editor is only reachable via SSH tunnel on localhost
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      # Allow the Code node to sign webhooks with the shared secret.
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      LYONS_WEBHOOK_SECRET: ${WEBHOOK_SHARED_SECRET:?set WEBHOOK_SHARED_SECRET in .env}
+      LYONS_BASE_URL: http://lyons-ai:8080
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes:
+      - n8ndata:/home/node/.n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    networks: [internal, egress]
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      LYONS_DOMAIN: ${LYONS_DOMAIN:?set LYONS_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    networks: [internal, egress]
+
+networks:
+  internal:
+    internal: true
+  egress: {}
+
+volumes:
+  pgdata: {}
+  n8ndata: {}
+  artifacts: {}
+  caddydata: {}

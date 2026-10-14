@@ -1,0 +1,16 @@
+# Public surface = the Google OAuth redirect only. Everything else is 404.
+{$LYONS_DOMAIN} {
+	@oauth path /oauth/google/callback
+	handle @oauth {
+		reverse_proxy lyons-ai:8080
+	}
+	handle {
+		respond 404
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+}
