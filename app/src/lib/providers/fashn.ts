@@ -57,7 +57,7 @@ export class FashnProvider implements TryOnProvider {
       headers: this.headers(),
       signal,
       body: JSON.stringify({
-        model_name: this.model,
+        model_name: this.model === "contract-stub" ? "tryon-v1.6" : this.model,
         inputs: {
           model_image: this.imageRef(input.person),
           garment_image: this.imageRef(input.garment),

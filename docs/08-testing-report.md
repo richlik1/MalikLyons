@@ -1,6 +1,6 @@
 # Testing Report
 
-> **Superseded by the production-readiness audit (12 Oct 2026).** Current results: **109 unit, 37 integration (local Supabase stack), 12 E2E (stubbed provider), 0 live**. Raw outputs are in [`evidence/`](evidence/) and the analysis is in [`14-production-readiness-audit.md`](14-production-readiness-audit.md). The audit also closed the "RLS against a real Postgres" and "end-to-end flows" gaps listed below, using the local stack. **Live AI generation is still untested.** The original report follows.
+> **Superseded by the production-readiness audit (12 Oct 2026).** Current results: **110 unit, 37 integration (local Supabase stack), 12 E2E (stubbed provider), 0 live**. Raw outputs are in [`evidence/`](evidence/) and the analysis is in [`14-production-readiness-audit.md`](14-production-readiness-audit.md). The audit also closed the "RLS against a real Postgres" and "end-to-end flows" gaps listed below, using the local stack. **Live AI generation is still untested.** The original report follows.
 
 _Run on 2026-10-12 in the development container (Node 22.22, Next 15.5.27)._
 

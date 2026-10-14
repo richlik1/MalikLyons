@@ -32,13 +32,13 @@ jobs:
     needs: unit
     defaults: { run: { working-directory: app } }
     env:
-      TS_STACK_DIR: ${{ runner.temp }}/ts-stack
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: app/package-lock.json }
       - run: npm ci
+      - run: echo "TS_STACK_DIR=$RUNNER_TEMP/ts-stack" >> "$GITHUB_ENV"
       - run: scripts/local-stack.sh up
       - name: Start gateway and FASHN contract stub
         run: |

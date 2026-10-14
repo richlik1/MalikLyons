@@ -1,12 +1,19 @@
 // LOCAL CONTRACT STUB of the FASHN v1 API, for end-to-end tests of TrendSet's own pipeline.
 // It returns a fixed placeholder PNG and performs NO AI generation. Results obtained with this
 // stub must never be reported as a live FASHN test. Port 54340, path prefix /v1.
+import { existsSync, readFileSync } from "node:fs";
 import http from "node:http";
 
-const png = Buffer.alloc(33);
-png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
-png.writeUInt32BE(768, 16);
-png.writeUInt32BE(1024, 20);
+// Serves a visible "STUB OUTPUT — Not AI" card when rendered (scripts/render-demo-assets.mjs),
+// otherwise a minimal valid PNG header.
+const card = new URL("./demo-assets/stub-output.png", import.meta.url);
+let png = existsSync(card) ? readFileSync(card) : null;
+if (!png) {
+  png = Buffer.alloc(33);
+  png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  png.writeUInt32BE(768, 16);
+  png.writeUInt32BE(1024, 20);
+}
 const jobs = new Map();
 let n = 0;
 

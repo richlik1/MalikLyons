@@ -18,11 +18,13 @@ export function createProvider(env: Env = process.env): TryOnProvider | null {
   try {
     if (choice === "fashn") {
       if (!env.FASHN_API_KEY) return null;
+      // FASHN_BASE_URL is for local contract testing only (check:env rejects it when deployed).
+      // Runs against a stub are logged as "contract-stub" at $0 so logs never look like real spend.
+      const stub = Boolean(env.FASHN_BASE_URL);
       return new FashnProvider({
         apiKey: env.FASHN_API_KEY,
-        model: env.FASHN_MODEL,
-        costPerImageUsd: num(env.FASHN_COST_PER_IMAGE_USD),
-        // Local contract testing only; check:env rejects overrides in staging/production.
+        model: stub ? "contract-stub" : env.FASHN_MODEL,
+        costPerImageUsd: stub ? 0 : num(env.FASHN_COST_PER_IMAGE_USD),
         baseUrl: env.FASHN_BASE_URL || undefined,
       });
     }

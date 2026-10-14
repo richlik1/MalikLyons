@@ -1,19 +1,18 @@
-# Unit tests + typecheck — 2026-10-12T14:51:19Z
-Environment: Node v22.22.0, Next 15.5.27, local stack images supabase/postgres:15.8.1.060 gotrue:v2.170.0 storage-api:v1.19.3 postgrest:v12.2.8
+# Unit tests + typecheck — 2026-10-14T04:03:59Z
  ✓ tests/shopify.test.ts > shop domain validation > accepts myshopify domains only 2ms
  ✓ tests/shopify.test.ts > OAuth query HMAC > accepts a correctly signed query 1ms
- ✓ tests/shopify.test.ts > OAuth query HMAC > rejects tampering, a wrong secret, or a missing hmac 0ms
+ ✓ tests/shopify.test.ts > OAuth query HMAC > rejects tampering, a wrong secret, or a missing hmac 1ms
  ✓ tests/shopify.test.ts > webhook HMAC > accepts the raw body signature 0ms
  ✓ tests/shopify.test.ts > webhook HMAC > rejects a re-serialized or modified body 0ms
  ✓ tests/shopify.test.ts > authorize URL & token exchange > builds the authorize URL on the shop domain 1ms
- ✓ tests/shopify.test.ts > authorize URL & token exchange > exchanges a code for a token 4ms
+ ✓ tests/shopify.test.ts > authorize URL & token exchange > exchanges a code for a token 5ms
  ✓ tests/shopify.test.ts > token encryption > round-trips and uses a fresh IV each time 1ms
- ✓ tests/shopify.test.ts > token encryption > detects tampering and wrong keys 1ms
+ ✓ tests/shopify.test.ts > token encryption > detects tampering and wrong keys 2ms
  ✓ tests/shopify.test.ts > order attribution > extracts experiment, visitor and value from hidden cart attributes 1ms
  ✓ tests/shopify.test.ts > order attribution > ignores orders without attribution or with malformed values 0ms
  ✓ tests/shopify.test.ts > product mapping > maps GraphQL nodes and falls back to the handle URL 0ms
- ✓ tests/shopify.test.ts > product mapping > guesses supported categories and returns null otherwise 0ms
- ✓ tests/service.test.ts > runTryOn > generates, stores the result privately, logs cost and latency 4ms
+ ✓ tests/shopify.test.ts > product mapping > guesses supported categories and returns null otherwise 1ms
+ ✓ tests/service.test.ts > runTryOn > generates, stores the result privately, logs cost and latency 5ms
  ✓ tests/service.test.ts > runTryOn > blocks when the merchant's hard-capped monthly allowance is used up, before spending 2ms
  ✓ tests/service.test.ts > runTryOn > allows overage when the plan is not hard-capped 0ms
  ✓ tests/service.test.ts > runTryOn > blocks suspended merchants 0ms
@@ -22,76 +21,77 @@ Environment: Node v22.22.0, Next 15.5.27, local stack images supabase/postgres:1
  ✓ tests/service.test.ts > runTryOn > refuses photos owned by someone else 0ms
  ✓ tests/service.test.ts > runTryOn > refuses expired photos (retention policy) 0ms
  ✓ tests/service.test.ts > runTryOn > refuses unsupported categories before spending money 1ms
- ✓ tests/service.test.ts > runTryOn > rate-limits before calling the provider 0ms
+ ✓ tests/service.test.ts > runTryOn > rate-limits before calling the provider 1ms
  ✓ tests/service.test.ts > runTryOn > logs provider failures with zero cost and a user-safe message 1ms
  ✓ tests/service.test.ts > runTryOn > treats unexpected errors as provider_error (502) 0ms
- ✓ tests/providers.test.ts > FashnProvider > submits a job, polls until completed and decodes base64 output 13ms
- ✓ tests/providers.test.ts > FashnProvider > maps moderation failures to content_rejected 15ms
- ✓ tests/providers.test.ts > FashnProvider > maps HTTP 429 to retryable rate_limited 1ms
+ ✓ tests/providers.test.ts > FashnProvider > submits a job, polls until completed and decodes base64 output 17ms
+ ✓ tests/providers.test.ts > FashnProvider > maps moderation failures to content_rejected 8ms
+ ✓ tests/providers.test.ts > FashnProvider > maps HTTP 429 to retryable rate_limited 5ms
  ✓ tests/providers.test.ts > FashnProvider > times out instead of polling forever 11ms
- ✓ tests/providers.test.ts > FashnProvider > refuses to construct without an API key 0ms
- ✓ tests/providers.test.ts > VertexTryOnProvider > calls :predict with base64 person and product images 1ms
+ ✓ tests/providers.test.ts > FashnProvider > refuses to construct without an API key 7ms
+ ✓ tests/providers.test.ts > VertexTryOnProvider > calls :predict with base64 person and product images 2ms
  ✓ tests/providers.test.ts > VertexTryOnProvider > treats a filtered/empty prediction as content_rejected 1ms
  ✓ tests/providers.test.ts > createProvider > returns null (never a fake provider) when unconfigured 0ms
+ ✓ tests/providers.test.ts > createProvider > labels stub-endpoint runs as contract-stub at $0 0ms
  ✓ tests/providers.test.ts > createProvider > builds FASHN with configured cost 0ms
- ✓ tests/env.test.ts > validateEnv > accepts a complete private staging configuration 5ms
+ ✓ tests/env.test.ts > validateEnv > accepts a complete private staging configuration 4ms
  ✓ tests/env.test.ts > validateEnv > catches a service-role key placed in the public anon variable 1ms
  ✓ tests/env.test.ts > validateEnv > catches secrets exposed through NEXT_PUBLIC_ variables 1ms
  ✓ tests/env.test.ts > validateEnv > refuses a public deployment without explicit launch approval 1ms
- ✓ tests/env.test.ts > validateEnv > refuses live billing and live Stripe keys 1ms
+ ✓ tests/env.test.ts > validateEnv > refuses live billing and live Stripe keys 0ms
  ✓ tests/env.test.ts > validateEnv > refuses a FASHN base URL override outside development 0ms
- ✓ tests/env.test.ts > validateEnv > requires complete Shopify configuration and a 32-byte key 1ms
+ ✓ tests/env.test.ts > validateEnv > requires complete Shopify configuration and a 32-byte key 0ms
  ✓ tests/env.test.ts > validateEnv > is lenient in development but warns 0ms
  ✓ tests/env.test.ts > site access gate > is on by default for deployed environments 1ms
  ✓ tests/env.test.ts > site access gate > lets self-authenticating server endpoints through 0ms
- ✓ tests/env.test.ts > site access gate > checks the basic-auth password 1ms
- ✓ tests/claims.test.ts > claims scanner self-test > flags the kinds of claims found in the legacy prototype 4ms
+ ✓ tests/env.test.ts > site access gate > checks the basic-auth password 0ms
+ ✓ tests/claims.test.ts > claims scanner self-test > flags the kinds of claims found in the legacy prototype 5ms
  ✓ tests/claims.test.ts > claims scanner self-test > allows honest disclaimers 0ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > scans user-facing files 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/account/page.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/account/page.tsx 1ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/admin/page.tsx 1ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/layout.tsx 0ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/login/page.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/page.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/privacy/page.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/studio/page.tsx 4ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/try-on/page.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/privacy/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/studio/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/try-on/page.tsx 1ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/AccountActions.tsx 0ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/LandingTracker.tsx 0ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/SiteHeader.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioForms.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioPanels.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioForms.tsx 3ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioPanels.tsx 1ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/TrackedLink.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/TryOnFlow.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/TryOnFlow.tsx 1ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/WaitlistForm.tsx 0ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/consent.ts 0ms
  ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/limits.ts 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/tryon/service.ts 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/tryon/service.ts 0ms
  ✓ tests/experiments.test.ts > assignArm > is deterministic per visitor and salt 2ms
- ✓ tests/experiments.test.ts > assignArm > splits close to the configured share across many visitors 178ms
- ✓ tests/experiments.test.ts > assignArm > re-randomizes when the salt changes 16ms
+ ✓ tests/experiments.test.ts > assignArm > splits close to the configured share across many visitors 171ms
+ ✓ tests/experiments.test.ts > assignArm > re-randomizes when the salt changes 11ms
  ✓ tests/experiments.test.ts > sampleRatioMismatch > does not flag a fair split 0ms
  ✓ tests/experiments.test.ts > sampleRatioMismatch > flags a broken split 0ms
  ✓ tests/experiments.test.ts > analyze > reports insufficient data on small samples instead of a verdict 1ms
- ✓ tests/experiments.test.ts > analyze > finds a clear positive effect with a CI excluding zero 1ms
+ ✓ tests/experiments.test.ts > analyze > finds a clear positive effect with a CI excluding zero 0ms
  ✓ tests/experiments.test.ts > analyze > calls a small positive difference inconclusive when the CI spans zero 0ms
- ✓ tests/experiments.test.ts > analyze > refuses a verdict when the sample ratio is broken 1ms
+ ✓ tests/experiments.test.ts > analyze > refuses a verdict when the sample ratio is broken 0ms
  ✓ tests/experiments.test.ts > analyze > reports progress against the planned sample 0ms
  ✓ tests/experiments.test.ts > requiredVisitorsPerArm > matches the pilot plan figure (6% baseline, +10% relative, α=.05, 80% power) 0ms
  ✓ tests/billing.test.ts > estimateInvoice > charges base only within the allowance 4ms
  ✓ tests/billing.test.ts > estimateInvoice > adds overage beyond the allowance 1ms
- ✓ tests/billing.test.ts > estimateInvoice > never bills overage on hard-capped plans 1ms
+ ✓ tests/billing.test.ts > estimateInvoice > never bills overage on hard-capped plans 0ms
  ✓ tests/billing.test.ts > estimateInvoice > respects merchant quota overrides 1ms
- ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > shows the brief's original Growth tier is negative-margin at full use and on-demand cost 1ms
+ ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > shows the brief's original Growth tier is negative-margin at full use and on-demand cost 0ms
  ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > shows recommended Starter stays positive at full use and on-demand cost 0ms
  ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > accounts for overage revenue and its cost 0ms
  ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > reports pilot (free) usage as pure cost 0ms
- ✓ tests/billing.test.ts > billingMode > defaults to disabled 1ms
+ ✓ tests/billing.test.ts > billingMode > defaults to disabled 0ms
  ✓ tests/billing.test.ts > billingMode > supports shadow 0ms
  ✓ tests/billing.test.ts > billingMode > refuses live billing in this build 1ms
  ✓ tests/billing.test.ts > billingMode > computes UTC billing periods 1ms
- ✓ tests/image.test.ts > validateImage > accepts PNG, JPEG and WebP and reads dimensions 4ms
- ✓ tests/image.test.ts > validateImage > rejects files whose bytes are not an image, regardless of name or MIME 1ms
+ ✓ tests/image.test.ts > validateImage > accepts PNG, JPEG and WebP and reads dimensions 5ms
+ ✓ tests/image.test.ts > validateImage > rejects files whose bytes are not an image, regardless of name or MIME 2ms
  ✓ tests/image.test.ts > validateImage > rejects empty and oversized files 1ms
  ✓ tests/image.test.ts > validateImage > enforces minimum and maximum dimensions 1ms
  ✓ tests/image.test.ts > validateImage > rejects truncated headers 0ms
@@ -100,15 +100,15 @@ Environment: Node v22.22.0, Next 15.5.27, local stack images supabase/postgres:1
  ✓ tests/limits.test.ts > evaluateLimits > blocks at the daily per-user cap 0ms
  ✓ tests/limits.test.ts > evaluateLimits > blocks when the next image would exceed the global budget 0ms
  ✓ tests/limits.test.ts > evaluateLimits > falls back to safe defaults on bad env values 0ms
- ✓ tests/schemas.test.ts > waitlistSchema > normalises email 4ms
- ✓ tests/schemas.test.ts > waitlistSchema > rejects honeypot submissions 2ms
+ ✓ tests/schemas.test.ts > waitlistSchema > normalises email 3ms
+ ✓ tests/schemas.test.ts > waitlistSchema > rejects honeypot submissions 1ms
  ✓ tests/schemas.test.ts > waitlistSchema > rejects invalid store URLs 1ms
  ✓ tests/schemas.test.ts > productFieldsSchema > accepts a valid product 1ms
- ✓ tests/schemas.test.ts > productFieldsSchema > requires https purchase URLs 1ms
- ✓ tests/schemas.test.ts > productFieldsSchema > rejects malformed prices 1ms
- ✓ tests/http.test.ts > sameOrigin > accepts the host the browser addressed even if req.url differs (proxy / next start) 5ms
+ ✓ tests/schemas.test.ts > productFieldsSchema > requires https purchase URLs 0ms
+ ✓ tests/schemas.test.ts > productFieldsSchema > rejects malformed prices 0ms
+ ✓ tests/http.test.ts > sameOrigin > accepts the host the browser addressed even if req.url differs (proxy / next start) 4ms
  ✓ tests/http.test.ts > sameOrigin > rejects other origins 1ms
  ✓ tests/http.test.ts > sameOrigin > allows requests without an Origin header (server-to-server) 1ms
  Test Files  11 passed (11)
-      Tests  109 passed (109)
+      Tests  110 passed (110)
 typecheck: OK

@@ -115,10 +115,11 @@ d("end-to-end: app routes on the local stack", () => {
     const img = await fetch(body.resultUrl);
     expect(img.status).toBe(200);
     const svc = admin();
-    const g = await svc.from("generations").select("status, provider, cost_usd, latency_ms, result_path, provider_job_id").eq("id", generationId).single();
-    expect(g.data).toMatchObject({ status: "succeeded", provider: "fashn" });
+    const g = await svc.from("generations").select("status, provider, model, cost_usd, latency_ms, result_path, provider_job_id").eq("id", generationId).single();
+    expect(g.data).toMatchObject({ status: "succeeded", provider: "fashn", cost_usd: 0 });
     expect(g.data!.result_path.startsWith(`${shopper.id}/`)).toBe(true);
     expect(g.data!.provider_job_id).toMatch(/^stub-/);
+    expect(g.data!.model).toBe("contract-stub");
     const u = await svc.from("usage_events").select("merchant_id, quantity").eq("generation_id", generationId).single();
     expect(u.data).toEqual({ merchant_id: merchantId, quantity: 1 });
   });

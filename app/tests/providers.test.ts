@@ -79,6 +79,11 @@ describe("createProvider", () => {
     expect(createProvider({ TRYON_PROVIDER: "fashn" })).toBeNull();
     expect(createProvider({ TRYON_PROVIDER: "mock" })).toBeNull();
   });
+  it("labels stub-endpoint runs as contract-stub at $0", () => {
+    const p = createProvider({ TRYON_PROVIDER: "fashn", FASHN_API_KEY: "k", FASHN_BASE_URL: "http://127.0.0.1:54340/v1", FASHN_COST_PER_IMAGE_USD: "0.075" });
+    expect(p?.model).toBe("contract-stub");
+    expect(p?.costPerImageUsd).toBe(0);
+  });
   it("builds FASHN with configured cost", () => {
     const p = createProvider({ TRYON_PROVIDER: "fashn", FASHN_API_KEY: "k", FASHN_COST_PER_IMAGE_USD: "0.049" });
     expect(p?.id).toBe("fashn");

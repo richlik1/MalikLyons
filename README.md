@@ -3,7 +3,7 @@
 AI virtual try-on for independent fashion brands. Shoppers preview garments on themselves, and merchants find out whether it actually helps them sell.
 
 > **Status (12 Oct 2026, after the production-readiness audit):**
-> - Tests: 109 unit · 37 integration on a **local** Supabase stack · 12 end-to-end with a **stubbed** AI provider · **0 live tests**.
+> - Tests: 110 unit · 37 integration on a **local** Supabase stack · 12 end-to-end with a **stubbed** AI provider · **0 live tests**.
 > - No credentials for FASHN, hosted Supabase, Shopify or Stripe have been available, so **no real try-on image has ever been generated** and nothing has been deployed.
 > - Billing is disabled by design and staging is private by default.
 > - Demand is **not validated**.

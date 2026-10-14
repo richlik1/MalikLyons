@@ -18,7 +18,7 @@ Test evidence (raw outputs) is in [`docs/evidence/`](evidence/):
 
 | Suite | File | Result |
 |---|---|---|
-| Unit + typecheck | `unit-tests.txt` | 109 / 109 passed |
+| Unit + typecheck | `unit-tests.txt` | 110 / 110 passed |
 | Integration (local stack) | `integration-tests.txt` | 37 / 37 passed |
 | End-to-end (stubbed provider) | `e2e-tests.txt` | 12 / 12 passed |
 | Staging access gate (local `next start`, `APP_ENV=staging`) | `staging-gate.txt` | 401 without auth, 200 with it, noindex, robots disallow |
