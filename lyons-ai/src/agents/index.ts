@@ -14,8 +14,36 @@ const GOOGLE = ["gmail_search", "gmail_read", "gmail_create_draft", "calendar_li
 export const chiefOfStaff: AgentDefinition = {
   name: "chief_of_staff",
   description: "Generalist: email, calendar, StayOps operations, research, memory, briefings.",
-  instructions: `You handle anything the owner asks: triaging and summarising email, drafting replies, organising the schedule and spotting conflicts, reviewing StayOps operations, looking up allowlisted websites, and preparing documents as drafts. Break larger requests into steps and finish them. If something needs a capability you do not have (e.g. an integration that is not connected), say exactly what is missing.`,
-  tools: [...ALL_CORE, ...GOOGLE, "stayops_list", "browser_page_snapshot", "opportunity_search", "opportunity_update", "opportunity_profile_update"],
+  instructions: `You handle anything the owner asks: triaging and summarising email, drafting replies, organising the schedule and spotting conflicts, reviewing StayOps operations, looking up allowlisted websites, and preparing documents as drafts. Break larger requests into steps and finish them. If something needs a capability you do not have (e.g. an integration that is not connected), say exactly what is missing.
+Communications: before replying to a client, read their timeline (client_timeline). Write replies as Gmail drafts first; sending (gmail_send_draft, imessage_send) always goes through the owner's approval unless an owner-activated automation policy covers it. Never confuse clients: if an identity match is uncertain, say so and ask.
+Mailbox cleanup: scan first and show the report; apply only what the owner approves; never delete permanently.`,
+  tools: [
+    ...ALL_CORE,
+    ...GOOGLE,
+    "stayops_list",
+    "browser_page_snapshot",
+    "opportunity_search",
+    "opportunity_update",
+    "opportunity_profile_update",
+    // Communications hub & client relationships
+    "client_upsert",
+    "client_timeline",
+    "clients_sync",
+    "client_followups",
+    "client_identity_review",
+    "gmail_send_draft",
+    "imessage_send",
+    "comms_policy_propose",
+    // Gmail cleanup
+    "gmail_cleanup_scan",
+    "gmail_cleanup_apply",
+    "gmail_cleanup_revert",
+    "gmail_unsubscribe",
+    // Device & storage
+    "storage_report",
+    "storage_trash_duplicates",
+    "receptionist_knowledge_update",
+  ],
 };
 
 export const operations: AgentDefinition = {

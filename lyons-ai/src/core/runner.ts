@@ -260,6 +260,15 @@ ${task.input}`;
         modulePaused: await store.isModulePaused(tool.module ?? "core_agent"),
         agent,
       });
+      if (policy.decision === "require_approval" && tool.autoApprove) {
+        const existing = await store.getToolCallByUseId(tu.id);
+        const policyId = existing ? null : await tool.autoApprove(parsed.data, { store, config, scope: task.scope, taskId: task.id });
+        if (policyId) {
+          policy.decision = "allow";
+          policy.reason = `Covered by owner-approved automation policy ${policyId}`;
+          await store.audit("policy", "approval.by_policy", task.id, { tool: tool.name, policyId, action: tool.describeAction(parsed.data) });
+        }
+      }
       let row = await store.upsertToolCall({
         taskId: task.id,
         toolUseId: tu.id,

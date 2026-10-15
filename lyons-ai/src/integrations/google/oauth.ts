@@ -12,6 +12,10 @@ import type { SecretBox } from "../../security/crypto.js";
  *    LYONS AI has no send code path in the MVP, and any future send tool is
  *    classed external_communication (approval required).
  *  - calendar.events: read events and (with approval) create them
+ *  - gmail.modify: label/archive/trash for Gmail cleanup (no permanent delete
+ *    code path exists; trash stays recoverable for 30 days)
+ *  - contacts.readonly: match clients across Gmail and Google Contacts
+ * Accounts connected before a scope was added must reconnect (/connect_google).
  */
 export const GOOGLE_SCOPES = [
   "openid",
@@ -19,6 +23,8 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/gmail.compose",
   "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/contacts.readonly",
 ];
 
 const PROVIDER = "google";

@@ -2,7 +2,7 @@
 
 This file is the honest record of what has and hasn't been verified. **An integration is not "working" until it has been authenticated with real credentials and exercised.**
 
-Last updated: 2026-10-14 (initial build)
+Last updated: 2026-10-15 (v0.2: communications, opportunities, control center)
 
 ## Verified in the build environment
 
@@ -18,6 +18,21 @@ Last updated: 2026-10-14 (initial build)
 | Deployment config | `caddy validate` passes for `deploy/Caddyfile`; `docker compose config` passes; `deploy/postgres-init.sh` run in `postgres:16-alpine` creates the `n8n` role/db, and n8n is refused CONNECT to the `lyons` database |
 | Claude error mapping | A deliberately invalid key against the live API returns the "Claude rejected the API key (401)" task failure |
 
+### v0.2 additions verified in the build environment
+
+| Area | How it was verified |
+|---|---|
+| Totals | **163 TypeScript tests** (unit, real PostgreSQL 16, real headless Chromium) and **13 Python tests** for the Mac bridge, all passing; typecheck clean |
+| Opportunity engine (≈44 tests) | Eligibility rules (Grants.gov applicant types, SAM set-asides, location), hard filters, deterministic bounded scoring, bounded learning; Grants.gov and SAM.gov clients against fixtures in the documented response shape (HTTP-200 body errors, key never leaked in errors); web research loop with `pause_turn` resume; page verification (dates in Eastern time, amounts, title coverage, scam signals, **SSRF incl. redirect hops**); pipeline on Postgres: dedupe, alert cap, daily "new only", weekly no-repeat, feedback learning, recheck closing/deadline change, scheduler slots, retries with backoff, module pause |
+| Control Center (10 tests) | Login, lockout after 5 failures, signed session bound to token, CSRF on every action, emergency stop/resume, module pause, approvals from the dashboard, HTML escaping, JSON state; mobile layout screenshot (`docs/images/control-center-mobile.png`) from the compiled app |
+| Data-class guard / module pause | Restricted agent never sees client/message tools and is denied if it calls them; paused module denies tools |
+| Gmail cleanup | Classification and protection (incl. mutation-tested protection rule), exact-count approval check, archive/trash/revert, idempotent apply, one-click unsubscribe with sender check and SSRF refusal (fake Gmail + fake HTTP) |
+| Clients & comms | Exact-match auto-linking, suggestions and conflicts, owner confirmation, timeline, unanswered detection, reply tracking (draft → sent → replied), Gmail/Contacts sync (only client mail stored, idempotent), owner-activated automation policies with recipient/subject/cap enforcement through the real task runner |
+| iMessage bridge | Server endpoints (signatures, client-only storage, outbox empty when paused, acks); Python bridge against a synthetic `chat.db` (attributedBody decoding, client-only upload, first-run no backfill, journaled sends, no resend after crash, dry run); signature algorithm identical to the server's |
+| Receptionist | Twilio signatures **cross-checked against the official `twilio` package**; AI disclosure; price/commitment/terms filter (mutation-tested); emergency transfer without a model call; voicemail fallback when paused; owner summary |
+| Storage | Python scanner on real files (true duplicates only, Photos-library skip, re-hash before moving); server report/approval/queue/ack |
+| Compiled app | Boots with all five migrations on a fresh database; Control Center renders all 12 sections without errors |
+
 ## NOT yet verified (need your credentials or deployment)
 
 | Area | Status | What's needed |
@@ -28,6 +43,12 @@ Last updated: 2026-10-14 (initial build)
 | StayOps | ❌ No API available | Contract is a proposal (`STAYOPS_INTEGRATION.md`). |
 | Docker image build | ⚠️ Partially verified | The build stage (`npm ci` + compile) succeeded. The runtime stage's `playwright-core install --with-deps` could not finish here because this sandbox's proxy blocks the Debian package mirrors. Expected to work on a normal VM; verify with `docker compose build`. |
 | Full Compose stack end-to-end (TLS certificate issuance, all services together) | ❌ Not run end-to-end | A real VM + DNS |
+| **Opportunity live demo** (Grants.gov / SAM.gov) | ❌ Not run live | The build sandbox's network policy blocks `api.grants.gov` and `api.sam.gov`. Run `npm run opp:demo` on the VM (add `SAM_API_KEY` for contracts). Confirm the live response field names match the parsers. |
+| Opportunity web research | ❌ Not run live | `ANTHROPIC_API_KEY` |
+| Gmail cleanup / Contacts sync | ❌ Not run on real mailboxes | Reconnect Google with the new `gmail.modify` and `contacts.readonly` scopes, then run `/cleanup` (scan only) first |
+| iMessage bridge on a real Mac | ❌ Not run on macOS | A Mac with Full Disk Access and Automation permission; start with `LYONS_BRIDGE_DRY_RUN=1` |
+| Mac storage "move to Trash" via Finder | ❌ Not run on macOS | A Mac |
+| Receptionist on a real call | ❌ Not run | Twilio number + `TWILIO_AUTH_TOKEN`; place a test call |
 
 ## Live acceptance log (fill in after deployment)
 
@@ -44,3 +65,11 @@ Last updated: 2026-10-14 (initial build)
 | | `/pause` / `/resume` | | |
 | | Scheduled morning briefing from n8n | | |
 | | Browser snapshot of an allowlisted site | | |
+| | `npm run opp:demo` produces a verified Grants.gov opportunity | | |
+| | Control Center sign-in, emergency stop, module pause | | |
+| | `/cleanup` scan report on the real inbox (no changes) | | |
+| | Apply + revert a small cleanup plan | | |
+| | `clients_sync` timeline for one real client | | |
+| | iMessage bridge dry run on the Mac | | |
+| | Receptionist test call (normal + "emergency") | | |
+| | Mac storage scan report | | |

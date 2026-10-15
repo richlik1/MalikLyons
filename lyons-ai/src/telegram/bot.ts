@@ -13,6 +13,8 @@ import { loadProfile, profileGaps } from "../opportunities/profile.js";
 import { formatOpportunity } from "../opportunities/report.js";
 import { opportunityButtons, parseOpportunityCallback, type OpportunityService } from "../opportunities/service.js";
 import type { OpportunityStore } from "../opportunities/store.js";
+import type { AutomationPolicies } from "../clients/policies.js";
+import type { ClientService } from "../clients/service.js";
 import { approvalCallbackData, chunkMessage, isOwner, parseApprovalCallback, parseRemember, parseScope, taskTitle } from "./parse.js";
 
 export class TelegramNotifier implements Notifier {
@@ -89,6 +91,14 @@ Opportunities
 /opp_done <id> <result> — record the outcome
 /profile — what the engine knows about you
 
+Clients & communications
+/followups — unanswered client requests and what's coming up
+/identities — uncertain contact matches to confirm
+/identity <id> yes|no — confirm or reject a match
+/policies — automation policies
+/policy_activate <id>, /policy_revoke <id>
+/cleanup — scan your inbox and propose a reversible cleanup
+
 Safety
 /status — health, spend, integrations
 /pause — KILL SWITCH: stop all work now
@@ -111,6 +121,7 @@ export function registerHandlers(
     notifier: Notifier;
     log: Logger;
     opportunities?: { service: OpportunityService; store: OpportunityStore };
+    comms?: { clients: ClientService; policies: AutomationPolicies };
   },
 ): void {
   const { config, store, runner, agents, google, log } = d;
@@ -294,6 +305,72 @@ ${integ}`,
         ctx,
         `${p.business.legalName} · ${p.business.entityType} · ${p.business.state} (${p.business.metroArea})\nNAICS: ${p.business.naics.join(", ")}\nSAM.gov registered: ${p.business.samRegistered ?? "unknown"}\nCertifications: ${p.business.certifications.join(", ") || "none listed"}\nMax upfront investment: $${p.constraints.maxUpfrontInvestmentUsd} · ~${p.constraints.weeklyHoursAvailable} h/week spare\n${gaps.length ? `\nTo sharpen eligibility checks, tell me:\n- ${gaps.join("\n- ")}` : ""}`,
       );
+    });
+  }
+
+  if (d.comms) {
+    const { clients, policies } = d.comms;
+
+    bot.command("followups", async (ctx) => {
+      const [open, upcoming] = await Promise.all([clients.unanswered(24), clients.upcoming(7)]);
+      const fmt = (x: Date) => x.toLocaleString("en-US", { timeZone: config.TIMEZONE, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      await reply(
+        ctx,
+        [
+          `Unanswered client requests (>24h): ${open.length}`,
+          ...open.slice(0, 15).map((o) => `- ${o.name}, ${fmt(o.at)}: ${o.summary.slice(0, 140)}`),
+          "",
+          `Next 7 days: ${upcoming.length}`,
+          ...upcoming.slice(0, 15).map((u) => `- ${fmt(u.due_at)} ${u.kind} — ${u.name}: ${u.summary.slice(0, 100)}`),
+          "",
+          "Ask me to draft replies for any of these.",
+        ].join("\n"),
+      );
+    });
+
+    bot.command("identities", async (ctx) => {
+      const rows = await clients.pendingSuggestions();
+      await reply(ctx, rows.length ? rows.map((r) => `${r.id.slice(0, 8)}: ${r.value}${r.display_name ? ` (${r.display_name})` : ""} → ${r.client_name}? ${r.reason}`).join("\n") + "\n\nReply /identity <id> yes|no" : "Nothing to confirm.");
+    });
+
+    bot.command("identity", async (ctx) => {
+      const [prefix, answer] = ctx.match.trim().split(/\s+/);
+      const all = await clients.pendingSuggestions();
+      const match = all.filter((r) => prefix && r.id.startsWith(prefix.toLowerCase()));
+      if (match.length !== 1 || !["yes", "no"].includes(answer ?? "")) return void (await reply(ctx, "Usage: /identity <id> yes|no (ids from /identities)"));
+      await reply(ctx, await clients.decideSuggestion(match[0]!.id, answer === "yes", "owner"));
+    });
+
+    bot.command("policies", async (ctx) => {
+      const list = await policies.list();
+      await reply(
+        ctx,
+        list.length
+          ? list.map((p) => `${p.id.slice(0, 8)} [${p.status}] ${p.name}\n  ${p.channel} → ${p.rules.recipients.join(", ")}; max ${p.rules.maxPerDay}/day${p.rules.subjectPrefix ? `; subject starts "${p.rules.subjectPrefix}"` : ""}\n  ${p.description}`).join("\n\n")
+          : "No automation policies: every outgoing message needs your approval.",
+      );
+    });
+
+    for (const [cmd, status] of [["policy_activate", "active"], ["policy_revoke", "revoked"]] as const) {
+      bot.command(cmd, async (ctx) => {
+        const p = await policies.findByPrefix(ctx.match.trim());
+        if (!p) return void (await reply(ctx, `Usage: /${cmd} <id> (from /policies)`));
+        const ok = await policies.setStatus(p.id, status, "owner");
+        await reply(ctx, ok ? `Policy "${p.name}" is now ${status}.` : `Policy "${p.name}" can't be changed (it may be revoked).`);
+      });
+    }
+
+    bot.command("cleanup", async (ctx) => {
+      if (await store.isPaused()) return void (await reply(ctx, "⛔ Kill switch is ON."));
+      const scope = parseScope(ctx.match) ?? "business";
+      await store.createTask({
+        title: `Gmail cleanup scan (${scope})`,
+        input: "Scan my inbox with gmail_cleanup_scan (archive only, older than 30 days) and send me the cleanup report. Do not apply anything yet.",
+        scope,
+        source: "telegram",
+        chatId: ctx.chat.id,
+      });
+      await reply(ctx, `🧹 Scanning your ${scope} inbox. I'll send the report; nothing changes until you approve.`);
     });
   }
 

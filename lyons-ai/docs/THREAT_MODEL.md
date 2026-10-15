@@ -26,15 +26,30 @@
 | T14 | **Supply chain** | A malicious npm package. | Lockfile with `npm ci`, a small dependency set, a non-root container, and pinned image tags. | Add `npm audit` and Dependabot in CI (M2). |
 | T15 | **Model refusal / truncation** | The task silently stops. | `refusal` and `max_tokens` stop reasons fail the task with a clear message. Server-side refusal fallbacks are enabled. | — |
 
+## Expansion threats (v0.2)
+
+| # | Threat | Mitigations | Residual |
+|---|---|---|---|
+| T16 | **SSRF** through URLs from web research or email `List-Unsubscribe` headers | https only, no credentials in URLs, DNS resolution checked against private/loopback/link-local ranges, **every redirect hop re-checked**, timeouts | DNS rebinding between the check and the connect (low) |
+| T17 | **Fake or scam opportunities** | Authoritative re-fetch (Grants.gov/SAM.gov APIs) or primary-page verification; scam-pattern rejection; unconfirmed facts labeled; nothing submitted without approval | A convincing official-looking page; you review before acting |
+| T18 | **Notification flooding** | Daily alert cap, "new only" daily briefing, weekly no-repeat, dedupe by source id and title fingerprint | — |
+| T19 | **Client mix-ups** | Auto-link only on exact email/phone; domain or name matches need your confirmation; conflicts never auto-resolve; one identifier per client | Shared family/company inboxes |
+| T20 | **Caller-ID spoofing / social engineering on calls** | Caller-ID matches are used only in your summary; the receptionist never discloses client or schedule info; prices, availability, bookings and terms are filtered from every spoken sentence; emergencies are transferred to you | TTS voice quality; a determined social engineer is told nothing useful |
+| T21 | **Forged Twilio webhooks** | Twilio signature check (HMAC-SHA1 over the full URL + params, cross-checked with the official library) on every voice route | Leaked Twilio auth token → rotate in Twilio console |
+| T22 | **Mac bridge compromise or leaks** | HMAC-signed requests; bridge uploads only known-client conversations; outbox empty while paused; private-network access recommended (Tailscale); no resend after crash | A compromised Mac exposes your Messages regardless of LYONS AI |
+| T23 | **Mailbox damage from cleanup** | Read-only scan; protected categories; approval shows exact counts and the tool refuses on mismatch; archive with a dated label by default; trash opt-in; per-message journal; one-step revert; **no permanent-delete code path** | — |
+| T24 | **Automation creep** | Policies are narrow (explicit recipients, cap ≤ 20/day, optional subject/hours); owner-only activation; audited `approval.by_policy`; revocable instantly | — |
+| T25 | **Coding agents seeing personal data** | Data-class guard hides and denies client, message and personal tools for restricted agents | — |
+
 ## Approval rules (enforced in code)
 
 | Risk class | Examples | Needs approval |
 |---|---|---|
 | `read` | Search mail, list events, StayOps reads, page snapshot | No |
 | `write_internal` | Gmail **draft**, save memory, progress update to you | No |
-| `external_communication` | Calendar event with invites; future email/SMS send | **Yes** |
+| `external_communication` | Calendar event with invites; send Gmail draft; iMessage; one-click unsubscribe; change what the receptionist tells callers | **Yes** (unless an owner-activated automation policy covers that exact send) |
 | `financial` | Future payments / sending invoices | **Yes** |
-| `destructive` | Delete memory; future record deletion | **Yes** |
+| `destructive` | Delete memory; apply a Gmail cleanup plan; move duplicate files to Trash | **Yes** |
 | `permissions` | Future Drive sharing | **Yes** |
 | `legal` | Future form submissions | **Yes** |
 

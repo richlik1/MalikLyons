@@ -17,7 +17,8 @@ export function briefingPrompt(kind: BriefingKind, openTasks: TaskRow[]): string
 1. Today's calendar in time order, plus any conflicts (use calendar_find_conflicts for today).
 2. Email: search for unread messages from the last 24 hours. Summarise the ones that matter (clients, guests, vendors, payments, StayOps), and say which need a reply from me. Do not draft replies unless I've asked.
 3. StayOps: today's and tomorrow's turnovers and jobs, flagging unassigned cleaners and tight turnovers. If StayOps is not available, say so in one line.
-4. My open LYONS AI tasks (below), especially anything awaiting my approval.
+4. Clients: use client_followups. List unanswered client requests and today's client obligations; suggest which to answer first (draft replies only if I've asked).
+5. My open LYONS AI tasks (below), especially anything awaiting my approval.
 Finish with "Top 3 priorities today".
 
 Open tasks:

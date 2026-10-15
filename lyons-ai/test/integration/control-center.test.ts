@@ -14,6 +14,13 @@ describe("Control Center helpers", () => {
   it("escapes HTML", () => {
     expect(esc(`<img src=x onerror="alert(1)">'`)).toBe("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&#39;");
   });
+  it("invalidates sessions when the access token is rotated", () => {
+    const key = Buffer.alloc(32, 7).toString("base64");
+    const c = new SessionSigner(key, "old-token").issue(1000);
+    expect(new SessionSigner(key, "old-token").verify(c, 2000)).not.toBeNull();
+    expect(new SessionSigner(key, "new-token").verify(c, 2000)).toBeNull();
+  });
+
   it("signs sessions, rejects tampering and expiry", () => {
     const s = new SessionSigner(Buffer.alloc(32, 7).toString("base64"));
     const c = s.issue(1000);

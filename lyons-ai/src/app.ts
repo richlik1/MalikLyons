@@ -29,6 +29,21 @@ import { WebResearchSource } from "./opportunities/sources/web-research.js";
 import { OpportunityStore } from "./opportunities/store.js";
 import { opportunityTools } from "./opportunities/tools.js";
 import { opportunitySections } from "./opportunities/control-section.js";
+import { normalizeEmail } from "./clients/identity.js";
+import { AutomationPolicies } from "./clients/policies.js";
+import { ClientService } from "./clients/service.js";
+import { clientTools } from "./clients/tools.js";
+import { registerIMessageBridge } from "./comms/imessage-bridge.js";
+import type { Scope } from "./core/types.js";
+import { registerStorageBridge, storageTools } from "./device/storage.js";
+import { GmailMailbox } from "./gmail-cleanup/mailbox.js";
+import { GmailCleanupService } from "./gmail-cleanup/service.js";
+import { gmailCleanupTools } from "./gmail-cleanup/tools.js";
+import type { DraftHook } from "./integrations/google/gmail.js";
+import { moduleSections } from "./http/sections.js";
+import { registerReceptionist } from "./receptionist/routes.js";
+import { receptionistKnowledgeTool } from "./receptionist/tools.js";
+import type { LlmRequest, LlmResponse } from "./core/llm.js";
 
 /** Used when Telegram isn't configured: messages go to the log so nothing is silently lost. */
 class LogNotifier implements Notifier {
@@ -52,11 +67,11 @@ export function createLogger(cfg: Config): Logger {
   });
 }
 
-export function buildTools(cfg: Config, google: GoogleAuthManager): ToolRegistry {
+export function buildTools(cfg: Config, google: GoogleAuthManager, onDraft?: DraftHook): ToolRegistry {
   const tools = new ToolRegistry();
   coreTools.forEach((t) => tools.register(t));
   if (google.configured) {
-    gmailTools(google).forEach((t) => tools.register(t));
+    gmailTools(google, onDraft).forEach((t) => tools.register(t));
     calendarTools(google).forEach((t) => tools.register(t));
   }
   if (cfg.STAYOPS_API_BASE_URL && cfg.STAYOPS_API_TOKEN) {
@@ -75,7 +90,21 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
   const store = new Store(db);
   const box = new SecretBox(cfg.MASTER_ENCRYPTION_KEY);
   const google = new GoogleAuthManager(cfg, store, box);
-  const tools = buildTools(cfg, google);
+  const clients = new ClientService(db, store);
+  const policies = new AutomationPolicies(db, store, cfg.TIMEZONE);
+  const cleanup = new GmailCleanupService(db, store);
+  const mailboxFor = async (scope: Scope) => new GmailMailbox(await google.clientFor(scope));
+  // Every Gmail draft the agent creates is tracked as an outbound message (draft → sent → replied).
+  const onDraft: DraftHook = async (d) => {
+    const to = d.to[0] ?? "";
+    const match = await clients.resolve({ email: normalizeEmail(to) ?? to, source: "outbound" });
+    await clients.recordOutbound({ clientId: match.clientId, channel: "email", to, subject: d.subject, body: d.body, status: "draft", externalId: d.draftId, taskId: d.taskId });
+  };
+  const tools = buildTools(cfg, google, onDraft);
+  clientTools({ clients, policies, google, mailboxFor }).forEach((t) => tools.register(t));
+  if (google.configured) gmailCleanupTools(cleanup, mailboxFor).forEach((t) => tools.register(t));
+  storageTools(store).forEach((t) => tools.register(t));
+  tools.register(receptionistKnowledgeTool);
   const agents = defaultAgents();
 
   if (!cfg.ANTHROPIC_API_KEY && !opts.llm) log.warn("ANTHROPIC_API_KEY is not set: tasks will fail until it is provided");
@@ -123,12 +152,57 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
   const runner = new TaskRunner({ store, llm, tools, agents, notifier, config: cfg, log, workerId });
   const worker = new Worker({ store, runner, notifier, log, workerId, concurrency: cfg.WORKER_CONCURRENCY, taskTimeoutMs: cfg.TASK_TIMEOUT_MS });
 
-  const server = buildServer({ config: cfg, store, google, agents, notifier, runner, sections: [...opportunitySections(opps, cfg.TIMEZONE)] });
+  const server = buildServer({
+    config: cfg,
+    store,
+    google,
+    agents,
+    notifier,
+    runner,
+    sections: [...opportunitySections(opps, cfg.TIMEZONE), ...moduleSections({ store, clients, policies, cleanup, timezone: cfg.TIMEZONE })],
+  });
+  registerIMessageBridge(server, { config: cfg, store, clients, notifier });
+  registerStorageBridge(server, { config: cfg, store });
+  // The receptionist uses its own (fast, low-effort) model settings and records spend under its own label.
+  const receptionistLlm = opts.llm ?? new ClaudeClient({ ...cfg, CLAUDE_MODEL: cfg.RECEPTIONIST_MODEL, CLAUDE_EFFORT: cfg.RECEPTIONIST_EFFORT, CLAUDE_MAX_TOKENS: 1024 });
+  registerReceptionist(server, {
+    config: cfg,
+    store,
+    clients,
+    notifier,
+    log,
+    llm: {
+      async createMessage(req: LlmRequest, signal: AbortSignal): Promise<LlmResponse> {
+        const r = await receptionistLlm.createMessage(req, signal);
+        await store.recordSpend({
+          taskId: null,
+          model: r.model,
+          inputTokens: r.usage.input_tokens,
+          outputTokens: r.usage.output_tokens,
+          cacheReadTokens: r.usage.cache_read_input_tokens ?? 0,
+          cacheWriteTokens: r.usage.cache_creation_input_tokens ?? 0,
+          costUsd: estimateCostUsd(r.model, r.usage),
+          label: "receptionist",
+        });
+        return r;
+      },
+    },
+  });
   await server.listen({ host: cfg.HTTP_HOST, port: cfg.HTTP_PORT });
   log.info({ port: cfg.HTTP_PORT }, "http server listening");
 
   if (bot) {
-    registerHandlers(bot, { config: cfg, store, runner, agents, google, notifier, log, opportunities: { service: oppService, store: opps } });
+    registerHandlers(bot, {
+      config: cfg,
+      store,
+      runner,
+      agents,
+      google,
+      notifier,
+      log,
+      opportunities: { service: oppService, store: opps },
+      comms: { clients, policies },
+    });
     await bot.api.setMyCommands([
       { command: "status", description: "Health, spend, integrations" },
       { command: "tasks", description: "Recent tasks" },
@@ -154,5 +228,5 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
     await server.close();
     await db.end();
   };
-  return { shutdown, store, worker, runner, server, log, opps, oppService, oppScheduler };
+  return { shutdown, store, worker, runner, server, log, opps, oppService, oppScheduler, clients, policies, cleanup };
 }

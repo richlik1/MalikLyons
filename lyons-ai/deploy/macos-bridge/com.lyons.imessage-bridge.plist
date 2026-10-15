@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Copy to ~/Library/LaunchAgents/, edit the paths and values, then:
+     launchctl load ~/Library/LaunchAgents/com.lyons.imessage-bridge.plist -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.lyons.imessage-bridge</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/YOU/lyons-bridge/lyons_imessage_bridge.py</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>LYONS_BASE_URL</key><string>https://agent.example.com</string>
+    <key>LYONS_BRIDGE_SECRET</key><string>REPLACE_WITH_MAC_BRIDGE_SECRET</string>
+    <key>LYONS_BRIDGE_DRY_RUN</key><string>1</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/lyons-bridge.log</string>
+  <key>StandardErrorPath</key><string>/tmp/lyons-bridge.err</string>
+</dict>
+</plist>

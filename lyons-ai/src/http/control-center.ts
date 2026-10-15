@@ -46,8 +46,9 @@ const SESSION_TTL_MS = 12 * 3_600_000;
 
 export class SessionSigner {
   private readonly key: Buffer;
-  constructor(masterKeyB64: string) {
-    this.key = createHmac("sha256", Buffer.from(masterKeyB64, "base64")).update("lyons-control-center-v1").digest();
+  /** Bound to the access token too, so rotating CONTROL_CENTER_TOKEN invalidates every session. */
+  constructor(masterKeyB64: string, accessToken = "") {
+    this.key = createHmac("sha256", Buffer.from(masterKeyB64, "base64")).update(`lyons-control-center-v1:${accessToken}`).digest();
   }
   private mac(s: string): string {
     return createHmac("sha256", this.key).update(s).digest("base64url");
@@ -112,13 +113,9 @@ export function registerControlCenter(
 ): void {
   const { config, store } = d;
   const token = config.CONTROL_CENTER_TOKEN;
-  const signer = new SessionSigner(config.MASTER_ENCRYPTION_KEY);
+  const signer = new SessionSigner(config.MASTER_ENCRYPTION_KEY, token ?? "");
   const failures = { count: 0, since: Date.now() };
   const secureCookie = config.PUBLIC_BASE_URL.startsWith("https://");
-
-  app.addContentTypeParser("application/x-www-form-urlencoded", { parseAs: "string" }, (_req, body, done) => {
-    done(null, Object.fromEntries(new URLSearchParams(body as string)));
-  });
 
   const session = (req: FastifyRequest) => signer.verify(parseCookies(req.headers.cookie).lc_session);
 

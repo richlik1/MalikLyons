@@ -12,10 +12,13 @@ Each milestone ends with a demo you can do from your iPhone. "Done" means automa
 4. Live acceptance checks: "what's on my calendar today", "summarise unread email", "draft a reply to …", `/brief morning`, a calendar event that goes through approval, and `/pause` then `/resume`.
 5. Record results in `docs/STATUS.md`.
 
+## v0.2 (delivered in code): communications, opportunities, control
+Opportunity Intelligence (Grants.gov, SAM.gov, verified web research, scheduler, reports, feedback learning), Control Center dashboard with per-module pauses, data-class guard for agents, Gmail cleanup (reversible), client timeline with confidence-based identity matching, outbound tracking, owner-activated automation policies, macOS iMessage bridge (prototype), AI receptionist on Twilio, Mac storage assistant. Live acceptance steps are in `docs/STATUS.md`.
+
 ## M2 — Business documents and hardening (≈1–2 weeks)
 - **Google Drive:** read and create documents in a dedicated "LYONS AI" folder (`drive.file` scope only).
 - **Invoices, proposals, client reports:** template-driven generation (Google Docs/PDF) as **drafts** in Drive. Sending them is a separate, approval-gated step.
-- **Email send tool:** `gmail_send_draft`, classed `external_communication`. The approval shows the full recipients list and subject.
+- ~~Email send tool~~: delivered in v0.2 (`gmail_send_draft`, approval-gated, re-checks the draft before sending).
 - **Retryable errors:** re-queue tasks on transient Claude/Google errors (429/5xx) with backoff instead of failing them.
 - **Ops:** CI (typecheck, tests, `npm audit`), Dependabot, nightly encrypted Postgres backups, off-box audit log shipping.
 - **Spend:** reconcile the ledger with the Anthropic Usage API, and add a weekly cost report to the evening briefing.

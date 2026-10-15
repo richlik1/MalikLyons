@@ -41,11 +41,22 @@ Model: **Claude Opus 5.5** at $4 per million input tokens and $20 per million ou
 | StayOps API | Your own platform | $0 marginal |
 | Secret manager (optional, M2) | GCP Secret Manager / AWS SM | < $2 |
 
+## Expansion modules (v0.2)
+
+| Item | Monthly | Notes |
+|---|---|---|
+| Opportunity web research (Claude + web search) | ≤ $45 | Hard cap `OPP_DAILY_RESEARCH_BUDGET_USD` = $1.50/day; Grants.gov and SAM.gov APIs are free |
+| AI receptionist (Twilio) | ≈ $10–25 at ~100 calls/mo | Number ≈ $1–2, minutes and speech recognition a few cents per minute, Claude ≈ $0.01–0.05 per call; check twilio.com/pricing |
+| Mac for the iMessage/storage bridge | $0 if you use your Mac; ≈ $600 one-time for a Mac mini | Needs to stay awake for iMessage |
+| Tailscale (private Mac ↔ VM link) | $0 (personal plan) | |
+| iOS companion app (optional, later) | $99/yr | Apple Developer Program |
+| Gmail cleanup, client timeline, Control Center | $0 extra | Uses existing Google APIs and the VM |
+
 ## Total
 
 | Profile | Monthly total |
 |---|---|
-| Light | **≈ $30 – $80** |
+| Light (core only) | **≈ $30 – $80** |
 | Moderate | **≈ $55 – $135** |
 | Heavy | **≈ $130 – $290** (capped by your spend limits) |
 
@@ -53,3 +64,5 @@ Model: **Claude Opus 5.5** at $4 per million input tokens and $20 per million ou
 - Google Workspace seats, which you already pay for.
 - Your time for initial setup, about 1–2 hours following `docs/SETUP.md`.
 - Optional managed services: managed Postgres, or n8n Cloud at about $20+/month if you don't want to self-host it.
+
+With all v0.2 modules on (opportunity research at its cap, ~100 receptionist calls), add roughly **$25–70/month**, plus the optional one-time Mac mini.

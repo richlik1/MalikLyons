@@ -46,6 +46,13 @@ One OAuth client serves both accounts. You'll connect business and personal sepa
 5. Put the client id and secret into `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 6. After deployment, send `/connect_google business` in Telegram, open the link, and sign in with the **business** account. Repeat with `/connect_google personal`.
 
+## 4b. New in v0.2
+- **Google:** the app now also requests `gmail.modify` (reversible cleanup) and `contacts.readonly`. Enable the **People API** in Google Cloud and add both scopes to the consent screen. Then reconnect with `/connect_google business` and `/connect_google personal`.
+- **Control Center:** `CONTROL_CENTER_TOKEN=$(openssl rand -hex 32)`. Open it through an SSH tunnel: `ssh -L 8080:localhost:8080 you@vm`, then go to http://localhost:8080/control.
+- **Opportunities:** optional `SAM_API_KEY` (free: sign in at sam.gov → Account Details → API key). Grants.gov needs no key. Tell the bot the facts `/profile` asks about (SAM registration, revenue, employees, certifications).
+- **iMessage and storage on a Mac:** `MAC_BRIDGE_SECRET=$(openssl rand -hex 32)`; see `docs/COMMUNICATIONS.md` and `docs/APPLE_AND_DEVICE.md`.
+- **Receptionist:** a Twilio number, `RECEPTIONIST_ENABLED=true`, `TWILIO_AUTH_TOKEN`, `OWNER_PHONE`; see `docs/RECEPTIONIST.md`.
+
 ## 5. Browser allowlist (optional)
 Set `BROWSER_ALLOWED_DOMAINS` to the sites the agent may open, e.g. `lyonscleaning.com,airbnb.com`. Subdomains are included. Leave it empty to disable the browser.
 

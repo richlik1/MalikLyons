@@ -74,6 +74,21 @@ const ConfigSchema = z.object({
   OPP_WEB_RESEARCH: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
   OPP_DAILY_RESEARCH_BUDGET_USD: z.coerce.number().min(0).default(1.5),
 
+  // --- Communications ---
+  /** HMAC secret shared with the macOS bridge (iMessage + storage). Empty = bridge endpoints disabled. */
+  MAC_BRIDGE_SECRET: optionalString,
+
+  // --- AI receptionist (Twilio Voice) ---
+  RECEPTIONIST_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** Twilio Auth Token: used only to verify that webhooks really come from Twilio. */
+  TWILIO_AUTH_TOKEN: optionalString,
+  /** Owner's phone for urgent call transfers (E.164, e.g. +13135550100). */
+  OWNER_PHONE: optionalString,
+  RECEPTIONIST_MODEL: z.string().default("claude-opus-5-5"),
+  RECEPTIONIST_EFFORT: z.enum(["low", "medium", "high", "xhigh", "max"]).default("low"),
+  RECEPTIONIST_VOICE: z.string().default("Polly.Joanna-Neural"),
+  RECEPTIONIST_MAX_TURNS: z.coerce.number().int().min(2).max(20).default(6),
+
   DAILY_SPEND_LIMIT_USD: z.coerce.number().positive().default(5),
   TASK_SPEND_LIMIT_USD: z.coerce.number().positive().default(1),
   TASK_TIMEOUT_MS: z.coerce.number().int().positive().default(10 * 60_000),
@@ -106,6 +121,8 @@ export function integrationStatus(cfg: Config): Record<string, string> {
     browser: cfg.BROWSER_ALLOWED_DOMAINS.length ? `allowlist: ${cfg.BROWSER_ALLOWED_DOMAINS.join(", ")}` : "disabled (empty allowlist)",
     sam_gov: cfg.SAM_API_KEY ? "key present (unverified until first call)" : "not configured (federal contract discovery off)",
     opportunities: cfg.OPP_ENABLED ? `on (web research ${cfg.OPP_WEB_RESEARCH && cfg.ANTHROPIC_API_KEY ? "on" : "off"})` : "off",
+    mac_bridge: cfg.MAC_BRIDGE_SECRET ? "endpoints enabled (Mac bridge not verified)" : "disabled",
+    receptionist: cfg.RECEPTIONIST_ENABLED ? (cfg.TWILIO_AUTH_TOKEN ? "enabled (Twilio not verified)" : "ENABLED BUT MISSING TWILIO_AUTH_TOKEN") : "disabled",
     n8n_webhooks: cfg.WEBHOOK_SHARED_SECRET ? "enabled" : "disabled (no WEBHOOK_SHARED_SECRET)",
   };
 }

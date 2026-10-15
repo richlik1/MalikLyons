@@ -87,6 +87,12 @@ export interface ToolDefinition<I = any> {
   idempotent: boolean;
   /** One-line, human-readable description of exactly what will happen. Shown in approval prompts. */
   describeAction(input: I): string;
+  /**
+   * For approval-gated tools: return the id of an owner-activated automation
+   * policy that covers this exact action, letting it run without a per-call
+   * approval. Return null to require approval as usual.
+   */
+  autoApprove?(input: I, ctx: Pick<ToolContext, "store" | "config" | "scope" | "taskId">): Promise<string | null>;
   run(input: I, ctx: ToolContext): Promise<ToolResult>;
 }
 

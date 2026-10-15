@@ -32,6 +32,11 @@ Migrations run automatically at startup. Database tables are created on first bo
 | n8n | `127.0.0.1:5678` only. Open the editor via SSH tunnel: `ssh -L 5678:localhost:5678 you@vm`, then browse to http://localhost:5678 |
 | Postgres | Internal network only. Never published. |
 
+## 3b. Public paths (Caddy)
+Public: `/oauth/google/callback` and `/voice/*` (Twilio; signature-checked). Everything else is private.
+- **Control Center:** reach it via SSH tunnel or Tailscale (`/control`).
+- **Mac bridge:** connect the Mac to the VM over Tailscale and set `LYONS_BASE_URL=http://<vm-tailscale-ip>:8080`. Only if that's impossible, uncomment `/bridge/*` in `deploy/Caddyfile`.
+
 ## 4. n8n scheduled briefings
 1. Open the n8n editor through the tunnel and create the owner account.
 2. **Workflows → Import from file →** `deploy/n8n/lyons-briefings.workflow.json`.

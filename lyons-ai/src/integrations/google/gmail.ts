@@ -72,7 +72,11 @@ function encodeHeader(v: string): string {
   return /^[\x20-\x7e]*$/.test(v) ? v : `=?UTF-8?B?${Buffer.from(v, "utf8").toString("base64")}?=`;
 }
 
-export function gmailTools(auth: GoogleAuthManager): ToolDefinition[] {
+export interface DraftHook {
+  (d: { scope: "business" | "personal"; to: string[]; subject: string; body: string; draftId: string; taskId: string }): Promise<void>;
+}
+
+export function gmailTools(auth: GoogleAuthManager, onDraft?: DraftHook): ToolDefinition[] {
   const searchInput = z.object({
     query: z.string().max(500).describe('Gmail search syntax, e.g. "is:unread newer_than:1d" or "from:client@example.com"'),
     max_results: z.number().int().min(1).max(25).default(10),
@@ -164,6 +168,7 @@ export function gmailTools(auth: GoogleAuthManager): ToolDefinition[] {
       }
       const raw = Buffer.from(buildMime({ to: i.to, cc: i.cc, subject: i.subject, body: i.body, inReplyTo, references })).toString("base64url");
       const res = await api.users.drafts.create({ userId: "me", requestBody: { message: { raw, threadId } } });
+      await onDraft?.({ scope: ctx.scope, to: i.to, subject: i.subject, body: i.body, draftId: res.data.id ?? "", taskId: ctx.taskId });
       return { content: `Draft saved (draft id ${res.data.id}). It has NOT been sent; the owner can review it in Gmail Drafts.` };
     },
   };

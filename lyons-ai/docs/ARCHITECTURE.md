@@ -84,3 +84,28 @@ The integration tests cover each of these rows (`test/integration/runner.test.ts
 | `src/telegram/` | Bot commands, approval buttons, owner-only guard |
 | `src/http/server.ts` | Health, OAuth callback, signed n8n hooks |
 | `deploy/` | Caddy, Postgres init, n8n workflow |
+
+## Expansion modules (v0.2)
+
+All modules plug into the same core: tools with risk classes, the policy engine, approvals, the audit log, budgets, and the kill switch. Each also has its own **module pause** and declares **data classes**.
+
+| Module | Code | Docs |
+|---|---|---|
+| Opportunity Intelligence | `src/opportunities/` (sources, assess, scheduler, service) | `OPPORTUNITIES.md` |
+| Control Center dashboard | `src/http/control-center.ts`, `src/http/sections.ts` | below |
+| Gmail Intelligence & Cleanup | `src/gmail-cleanup/` | `COMMUNICATIONS.md` |
+| Client relationships + communications hub | `src/clients/`, `src/comms/imessage-bridge.ts` | `COMMUNICATIONS.md` |
+| AI receptionist | `src/receptionist/` | `RECEPTIONIST.md` |
+| Apple device & storage | `src/device/storage.ts`, `deploy/macos-bridge/` | `APPLE_AND_DEVICE.md` |
+
+### Module pauses and data classes
+- `MODULES` (`src/core/types.ts`): `core_agent, opportunities, gmail_cleanup, client_relationships, communications, receptionist, browser, device_storage`. Pausing one denies its tools in the policy engine and stops its background jobs and bridge queues. The global kill switch stops everything.
+- `DATA_CLASSES`: `public, business_internal, client_pii, personal_messages, personal, financial`. Tools declare what they expose and agents declare what they may see. A tool outside an agent's classes is hidden from the model **and** denied by policy if called anyway. The `software_engineer` agent only gets `public` and `business_internal`, so coding work never sees client records, messages or personal data unless you add those classes explicitly.
+
+### Automation policies
+`automation_policies` + `tool.autoApprove()`: an approval-gated send can skip per-message approval only if an **owner-activated** policy covers that exact channel, recipient, subject prefix and hours, under a daily cap. Activation is Telegram/owner-only; no model tool exists for it.
+
+### Control Center
+`/control` on the private port (reach it by SSH tunnel or Tailscale). It has token sign-in, a signed HttpOnly SameSite=Strict session bound to the token, CSRF on every action, and HTML-escaping of all third-party text. It shows: emergency stop, module pauses, pending approvals, active tasks, the opportunity pipeline, background job runs, client communications, automation policies, Gmail cleanup plans, storage recommendations, receptionist calls, and the action log. `/control/api/state` serves JSON for a future Telegram Mini App.
+
+![Control Center on iPhone](images/control-center-mobile.png)
