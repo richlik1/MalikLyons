@@ -101,6 +101,7 @@ export function calendarTools(auth: GoogleAuthManager): ToolDefinition[] {
     description: "List events on the task scope's Google Calendar (primary) between start and end.",
     input: range,
     risk: "read",
+    dataClasses: ["client_pii", "personal"],
     idempotent: true,
     describeAction: (i) => `List calendar events ${i.start} → ${i.end}`,
     async run(i, ctx) {
@@ -115,6 +116,7 @@ export function calendarTools(auth: GoogleAuthManager): ToolDefinition[] {
     description: "Find overlapping busy events on the task scope's calendar between start and end.",
     input: range,
     risk: "read",
+    dataClasses: ["client_pii", "personal"],
     idempotent: true,
     describeAction: (i) => `Check calendar conflicts ${i.start} → ${i.end}`,
     async run(i, ctx) {
@@ -141,6 +143,7 @@ export function calendarTools(auth: GoogleAuthManager): ToolDefinition[] {
     description: "Create an event on the task scope's primary calendar. Invitations are emailed to attendees. Requires owner approval.",
     input: createInput,
     risk: "external_communication",
+    dataClasses: ["client_pii", "personal"],
     // A deterministic event id makes a retried insert a no-op (409) instead of a duplicate.
     idempotent: true,
     describeAction: (i) =>

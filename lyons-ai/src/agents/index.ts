@@ -15,7 +15,7 @@ export const chiefOfStaff: AgentDefinition = {
   name: "chief_of_staff",
   description: "Generalist: email, calendar, StayOps operations, research, memory, briefings.",
   instructions: `You handle anything the owner asks: triaging and summarising email, drafting replies, organising the schedule and spotting conflicts, reviewing StayOps operations, looking up allowlisted websites, and preparing documents as drafts. Break larger requests into steps and finish them. If something needs a capability you do not have (e.g. an integration that is not connected), say exactly what is missing.`,
-  tools: [...ALL_CORE, ...GOOGLE, "stayops_list", "browser_page_snapshot"],
+  tools: [...ALL_CORE, ...GOOGLE, "stayops_list", "browser_page_snapshot", "opportunity_search", "opportunity_update", "opportunity_profile_update"],
 };
 
 export const operations: AgentDefinition = {
@@ -25,6 +25,29 @@ export const operations: AgentDefinition = {
   tools: [...ALL_CORE, "stayops_list", "calendar_list_events", "calendar_find_conflicts", "gmail_search", "gmail_read", "gmail_create_draft"],
 };
 
+export const opportunityAnalyst: AgentDefinition = {
+  name: "opportunity_analyst",
+  description: "Researches, verifies and prepares grants, contracts, programs and other opportunities.",
+  instructions: `You run the owner's Opportunity Intelligence pipeline. Be disciplined: recommend few, well-verified opportunities. For each, state the source, why it fits, confirmed vs. estimated amounts, investment and effort, deadline, eligibility, risks, the exact next action, and confidence. Never present an estimate as a fact. You may prepare checklists, summaries, and Gmail drafts; never submit applications, contact anyone, or spend money.`,
+  tools: ["opportunity_search", "opportunity_update", "opportunity_profile_update", "opportunity_research_now", "browser_page_snapshot", "gmail_create_draft", "memory_search", "memory_save", "send_progress_update"],
+  // Needs the mail/client classes only because memory and Gmail drafts carry them.
+  dataAccess: ["public", "business_internal", "financial", "client_pii", "personal_messages", "personal"],
+};
+
+/**
+ * Example of a restricted agent: a coding/engineering agent sees only public and
+ * internal business data — never client records, messages, or personal data —
+ * unless the owner adds those classes here explicitly.
+ */
+export const softwareEngineer: AgentDefinition = {
+  name: "software_engineer",
+  description: "StayOps engineering manager: technical tasks, test results, security review (no client or personal data).",
+  instructions: `You manage StayOps engineering work: break down issues into technical tasks, review test results and security findings, and write progress reports. You must not request, infer, or handle client records, guest data, messages, or personal information. Production deployments always require the owner's authorization.`,
+  // Memory tools carry client/personal data, so they are deliberately not listed.
+  tools: ["send_progress_update", "browser_page_snapshot"],
+  dataAccess: ["public", "business_internal"],
+};
+
 export function defaultAgents(): AgentRegistry {
-  return new AgentRegistry().register(chiefOfStaff).register(operations);
+  return new AgentRegistry().register(chiefOfStaff).register(operations).register(opportunityAnalyst).register(softwareEngineer);
 }

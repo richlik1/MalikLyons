@@ -8,9 +8,12 @@ export type LlmResponse = Pick<Anthropic.Beta.BetaMessage, "content" | "stop_rea
   stop_details?: Anthropic.Beta.BetaMessage["stop_details"];
 };
 
+/** Client tools plus Anthropic server tools such as web search. */
+export type LlmToolUnion = Anthropic.Beta.BetaToolUnion;
+
 export interface LlmRequest {
   system: string;
-  tools: LlmTool[];
+  tools: LlmToolUnion[];
   messages: LlmMessage[];
 }
 

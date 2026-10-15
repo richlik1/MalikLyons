@@ -44,6 +44,8 @@ const ConfigSchema = z.object({
   HTTP_PORT: z.coerce.number().int().positive().default(8080),
   /** Public https base URL used for the Google OAuth redirect. */
   PUBLIC_BASE_URL: z.string().url().default("http://localhost:8080"),
+  /** Long random token to sign in to the Control Center (/control). Empty = dashboard disabled. */
+  CONTROL_CENTER_TOKEN: optionalString,
   /** Shared HMAC secret for n8n -> agent webhooks. */
   WEBHOOK_SHARED_SECRET: optionalString,
 
@@ -57,6 +59,20 @@ const ConfigSchema = z.object({
   BROWSER_EXECUTABLE_PATH: optionalString,
   BROWSER_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   ARTIFACTS_DIR: z.string().default("./artifacts"),
+
+  // --- Opportunity Intelligence ---
+  OPP_ENABLED: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  /** Free key from SAM.gov → Account Details. Enables federal contract discovery. */
+  SAM_API_KEY: optionalString,
+  OPP_DISCOVERY_EVERY_HOURS: z.coerce.number().int().min(1).max(168).default(12),
+  OPP_DAILY_HOUR: z.coerce.number().int().min(0).max(23).default(7),
+  OPP_WEEKLY_DAY: z.coerce.number().int().min(0).max(6).default(1), // 0=Sunday
+  OPP_WEEKLY_HOUR: z.coerce.number().int().min(0).max(23).default(8),
+  OPP_MAX_ALERTS_PER_DAY: z.coerce.number().int().min(0).default(2),
+  OPP_DAILY_ITEMS: z.coerce.number().int().min(1).max(10).default(5),
+  OPP_MAX_VERIFICATIONS_PER_RUN: z.coerce.number().int().min(1).default(40),
+  OPP_WEB_RESEARCH: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  OPP_DAILY_RESEARCH_BUDGET_USD: z.coerce.number().min(0).default(1.5),
 
   DAILY_SPEND_LIMIT_USD: z.coerce.number().positive().default(5),
   TASK_SPEND_LIMIT_USD: z.coerce.number().positive().default(1),
@@ -88,6 +104,8 @@ export function integrationStatus(cfg: Config): Record<string, string> {
     google: cfg.GOOGLE_CLIENT_ID && cfg.GOOGLE_CLIENT_SECRET ? "client configured (accounts connect via /connect)" : "not configured",
     stayops: cfg.STAYOPS_API_BASE_URL && cfg.STAYOPS_API_TOKEN ? "configured (contract unverified)" : "not configured",
     browser: cfg.BROWSER_ALLOWED_DOMAINS.length ? `allowlist: ${cfg.BROWSER_ALLOWED_DOMAINS.join(", ")}` : "disabled (empty allowlist)",
+    sam_gov: cfg.SAM_API_KEY ? "key present (unverified until first call)" : "not configured (federal contract discovery off)",
+    opportunities: cfg.OPP_ENABLED ? `on (web research ${cfg.OPP_WEB_RESEARCH && cfg.ANTHROPIC_API_KEY ? "on" : "off"})` : "off",
     n8n_webhooks: cfg.WEBHOOK_SHARED_SECRET ? "enabled" : "disabled (no WEBHOOK_SHARED_SECRET)",
   };
 }

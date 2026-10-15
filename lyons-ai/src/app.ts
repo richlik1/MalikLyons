@@ -20,6 +20,15 @@ import { StayOpsClient, stayOpsTools } from "./integrations/stayops/stayops.js";
 import { SecretBox } from "./security/crypto.js";
 import { registerHandlers, TelegramNotifier } from "./telegram/bot.js";
 import { coreTools } from "./tools/core-tools.js";
+import { estimateCostUsd } from "./core/spend.js";
+import { OpportunityScheduler } from "./opportunities/scheduler.js";
+import { OpportunityService } from "./opportunities/service.js";
+import { GrantsGovSource } from "./opportunities/sources/grants-gov.js";
+import { SamGovSource } from "./opportunities/sources/sam-gov.js";
+import { WebResearchSource } from "./opportunities/sources/web-research.js";
+import { OpportunityStore } from "./opportunities/store.js";
+import { opportunityTools } from "./opportunities/tools.js";
+import { opportunitySections } from "./opportunities/control-section.js";
 
 /** Used when Telegram isn't configured: messages go to the log so nothing is silently lost. */
 class LogNotifier implements Notifier {
@@ -68,7 +77,6 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
   const google = new GoogleAuthManager(cfg, store, box);
   const tools = buildTools(cfg, google);
   const agents = defaultAgents();
-  log.info({ integrations: integrationStatus(cfg), tools: tools.names() }, "configuration");
 
   if (!cfg.ANTHROPIC_API_KEY && !opts.llm) log.warn("ANTHROPIC_API_KEY is not set: tasks will fail until it is provided");
   const llm = opts.llm ?? new ClaudeClient(cfg);
@@ -83,16 +91,44 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
     notifier = new LogNotifier(log);
   }
 
+  // ---- Opportunity Intelligence ----
+  const opps = new OpportunityStore(db);
+  const web = new WebResearchSource(cfg.ANTHROPIC_API_KEY || opts.llm ? llm : null, {
+    onUsage: async (r) => {
+      await store.recordSpend({
+        taskId: null,
+        model: r.model,
+        inputTokens: r.usage.input_tokens,
+        outputTokens: r.usage.output_tokens,
+        cacheReadTokens: r.usage.cache_read_input_tokens ?? 0,
+        cacheWriteTokens: r.usage.cache_creation_input_tokens ?? 0,
+        costUsd: estimateCostUsd(r.model, r.usage),
+        label: "opportunity_research",
+      });
+    },
+  });
+  const oppService = new OpportunityService({
+    store,
+    opps,
+    notifier,
+    config: cfg,
+    log,
+    sources: [new GrantsGovSource(), new SamGovSource(cfg.SAM_API_KEY), web],
+  });
+  opportunityTools(opps, oppService).forEach((t) => tools.register(t));
+  const oppScheduler = new OpportunityScheduler({ service: oppService, opps, store, config: cfg, log, web });
+  log.info({ integrations: integrationStatus(cfg), tools: tools.names() }, "configuration");
+
   const workerId = `${hostname()}:${process.pid}`;
   const runner = new TaskRunner({ store, llm, tools, agents, notifier, config: cfg, log, workerId });
   const worker = new Worker({ store, runner, notifier, log, workerId, concurrency: cfg.WORKER_CONCURRENCY, taskTimeoutMs: cfg.TASK_TIMEOUT_MS });
 
-  const server = buildServer({ config: cfg, store, google, agents, notifier });
+  const server = buildServer({ config: cfg, store, google, agents, notifier, runner, sections: [...opportunitySections(opps, cfg.TIMEZONE)] });
   await server.listen({ host: cfg.HTTP_HOST, port: cfg.HTTP_PORT });
   log.info({ port: cfg.HTTP_PORT }, "http server listening");
 
   if (bot) {
-    registerHandlers(bot, { config: cfg, store, runner, agents, google, notifier, log });
+    registerHandlers(bot, { config: cfg, store, runner, agents, google, notifier, log, opportunities: { service: oppService, store: opps } });
     await bot.api.setMyCommands([
       { command: "status", description: "Health, spend, integrations" },
       { command: "tasks", description: "Recent tasks" },
@@ -107,14 +143,16 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
   }
 
   worker.start();
+  if (cfg.OPP_ENABLED) oppScheduler.start();
 
   const shutdown = async () => {
     log.info("shutting down");
     await bot?.stop();
+    oppScheduler.stop();
     runner.abortAll("shutdown");
     await worker.stop();
     await server.close();
     await db.end();
   };
-  return { shutdown, store, worker, runner, server, log };
+  return { shutdown, store, worker, runner, server, log, opps, oppService, oppScheduler };
 }

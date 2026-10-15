@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AgentRegistry, ToolRegistry } from "../../src/core/registry.js";
 import { TaskRunner } from "../../src/core/runner.js";
-import type { ToolDefinition } from "../../src/core/types.js";
+import type { AgentDefinition, ToolDefinition } from "../../src/core/types.js";
 import { Worker } from "../../src/core/worker.js";
 import type { Db } from "../../src/db/pool.js";
 import { Store } from "../../src/db/store.js";
@@ -68,7 +68,7 @@ describe.skipIf(!hasDb)("TaskRunner (Postgres)", () => {
     notifier = new RecordingNotifier();
   });
 
-  function setup(llm: FakeLlm, extraTools: ToolDefinition[] = [], cfgOverrides: Record<string, string> = {}) {
+  function setup(llm: FakeLlm, extraTools: ToolDefinition[] = [], cfgOverrides: Record<string, string> = {}, agentOverrides: Partial<AgentDefinition> = {}) {
     const config = testConfig(cfgOverrides);
     const tools = new ToolRegistry();
     [...coreTools, ...extraTools].forEach((t) => tools.register(t));
@@ -77,6 +77,7 @@ describe.skipIf(!hasDb)("TaskRunner (Postgres)", () => {
       description: "test",
       instructions: "test agent",
       tools: tools.names(),
+      ...agentOverrides,
     });
     const runner = new TaskRunner({ store, llm, tools, agents, notifier, config, log: silentLog, workerId: "test-worker", leaseMs: 60_000 });
     const worker = new Worker({ store, runner, notifier, log: silentLog, workerId: "test-worker", concurrency: 2, taskTimeoutMs: config.TASK_TIMEOUT_MS });
@@ -355,6 +356,27 @@ describe.skipIf(!hasDb)("TaskRunner (Postgres)", () => {
     const first = llm.calls[0]!.messages[0]!.content as string;
     expect(first).toContain("- [preference] Tone: Keep replies short");
     expect(first).toMatch(/<untrusted_data source="memory:agent"[^>]*>\n- \[fact\] From an email/);
+  });
+
+  it("hides and denies tools whose data classes the agent may not see (coding agents never get client data)", async () => {
+    const llm = new FakeLlm([toolUseResponse("tu_mem", "memory_search", { query: "client" }), textResponse("Could not access that.")]);
+    const { runAll } = setup(llm, [], {}, { dataAccess: ["public", "business_internal"] });
+    await newTask();
+    await runAll();
+    // Not advertised to the model...
+    expect(llm.calls[0]!.tools.map((t) => ("name" in t ? t.name : ""))).not.toContain("memory_search");
+    expect(llm.calls[0]!.tools.map((t) => ("name" in t ? t.name : ""))).toContain("send_progress_update");
+    // ...and denied by policy even if the model calls it anyway.
+    expect(lastToolResult(llm, "tu_mem")!.content).toMatch(/not authorised to access client_pii/);
+  });
+
+  it("denies tools of a module paused in the Control Center", async () => {
+    await store.setModulePaused("core_agent", true, "owner");
+    const llm = new FakeLlm([toolUseResponse("tu_1", "memory_search", { query: "x" }), textResponse("Module paused.")]);
+    const { runAll } = setup(llm);
+    await newTask();
+    await runAll();
+    expect(lastToolResult(llm, "tu_1")!.content).toMatch(/core_agent module is paused/);
   });
 
   it("keeps the audit log append-only", async () => {

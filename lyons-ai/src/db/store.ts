@@ -1,5 +1,5 @@
 import type { Db, Queryable } from "./pool.js";
-import type { Scope } from "../core/types.js";
+import type { ModuleName, Scope } from "../core/types.js";
 
 export type TaskStatus = "queued" | "running" | "awaiting_approval" | "completed" | "failed" | "cancelled";
 export type TaskSource = "telegram" | "schedule" | "webhook" | "system";
@@ -88,6 +88,51 @@ export class Store {
       [PAUSED_KEY, { paused }],
     );
     await this.audit(actor, paused ? "kill_switch.on" : "kill_switch.off", null, {});
+  }
+
+  // ---------- per-module pause (Control Center) ----------
+  async isModulePaused(module: ModuleName, q: Queryable = this.db): Promise<boolean> {
+    const r = await q.query<{ value: { paused: boolean } }>("SELECT value FROM settings WHERE key = $1", [`module.${module}.paused`]);
+    return r.rows[0]?.value.paused ?? false;
+  }
+
+  async setModulePaused(module: ModuleName, paused: boolean, actor: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [`module.${module}.paused`, { paused }],
+    );
+    await this.audit(actor, paused ? "module.paused" : "module.resumed", null, { module });
+  }
+
+  async pausedModules(): Promise<ModuleName[]> {
+    const r = await this.db.query<{ key: string }>(
+      "SELECT key FROM settings WHERE key LIKE 'module.%.paused' AND (value->>'paused')::boolean",
+    );
+    return r.rows.map((x) => x.key.split(".")[1] as ModuleName);
+  }
+
+  /** Generic JSON settings (owner profile, automation policies). */
+  async getSetting<T>(key: string): Promise<T | null> {
+    const r = await this.db.query<{ value: T }>("SELECT value FROM settings WHERE key = $1", [key]);
+    return r.rows[0]?.value ?? null;
+  }
+
+  async setSetting(key: string, value: unknown, actor: string): Promise<void> {
+    await this.db.query(
+      `INSERT INTO settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [key, JSON.stringify(value)],
+    );
+    await this.audit(actor, "setting.changed", null, { key });
+  }
+
+  async recentAudit(limit = 50) {
+    const r = await this.db.query<{ id: string; at: Date; actor: string; event: string; task_id: string | null; details: any }>(
+      "SELECT id, at, actor, event, task_id, details FROM audit_log ORDER BY id DESC LIMIT $1",
+      [limit],
+    );
+    return r.rows;
   }
 
   // ---------- audit ----------
@@ -404,11 +449,12 @@ export class Store {
     cacheReadTokens: number;
     cacheWriteTokens: number;
     costUsd: number;
+    label?: string;
   }) {
     await this.db.query(
-      `INSERT INTO spend_ledger (task_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [s.taskId, s.model, s.inputTokens, s.outputTokens, s.cacheReadTokens, s.cacheWriteTokens, s.costUsd],
+      `INSERT INTO spend_ledger (task_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, label)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [s.taskId, s.model, s.inputTokens, s.outputTokens, s.cacheReadTokens, s.cacheWriteTokens, s.costUsd, s.label ?? null],
     );
     if (s.taskId) await this.db.query("UPDATE tasks SET cost_usd = cost_usd + $2 WHERE id = $1", [s.taskId, s.costUsd]);
   }

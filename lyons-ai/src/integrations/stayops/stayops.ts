@@ -51,6 +51,7 @@ export function stayOpsTools(client: StayOpsClient): ToolDefinition[] {
     description: "Read StayOps turnovers, jobs (with cleaner assignments), or inspections in a date range. Read-only.",
     input,
     risk: "read",
+    dataClasses: ["client_pii", "business_internal"],
     scopes: ["business"],
     idempotent: true,
     describeAction: (i) => `Read StayOps ${i.resource} ${i.from} → ${i.to}`,

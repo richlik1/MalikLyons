@@ -9,6 +9,8 @@ import { triggerBriefing } from "../scheduler/briefings.js";
 import { wrapUntrusted } from "../security/untrusted.js";
 import { verifyWebhook } from "../security/webhook-auth.js";
 import { taskTitle } from "../telegram/parse.js";
+import type { TaskRunner } from "../core/runner.js";
+import { registerControlCenter, type ControlSection } from "./control-center.js";
 
 const BriefingBody = z.object({
   kind: z.enum(["morning", "evening"]),
@@ -37,6 +39,8 @@ export function buildServer(d: {
   google: GoogleAuthManager;
   agents: AgentRegistry;
   notifier: Notifier;
+  runner?: TaskRunner;
+  sections?: ControlSection[];
 }): FastifyInstance {
   const { config, store, google, notifier } = d;
   const app = Fastify({ logger: false, bodyLimit: 256 * 1024 });
@@ -118,6 +122,8 @@ export function buildServer(d: {
     if (body.data.dedupe_key) await store.attachScheduledRunTask("webhook", body.data.dedupe_key, task.id);
     return { created: true, taskId: task.id };
   });
+
+  registerControlCenter(app, { config, store, runner: d.runner, sections: d.sections });
 
   return app;
 }

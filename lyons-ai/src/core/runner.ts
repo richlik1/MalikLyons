@@ -5,7 +5,7 @@ import { wrapUntrusted } from "../security/untrusted.js";
 import { TaskFailure } from "./errors.js";
 import type { LlmClient, LlmMessage } from "./llm.js";
 import type { Notifier } from "./notifier.js";
-import { decide } from "./policy.js";
+import { decide, forbiddenDataClasses } from "./policy.js";
 import { buildSystemPrompt } from "./prompts.js";
 import type { AgentRegistry, ToolRegistry } from "./registry.js";
 import { estimateCostUsd } from "./spend.js";
@@ -110,7 +110,11 @@ export class TaskRunner {
     const agent = this.d.agents.get(task.agent);
     if (!agent) throw new TaskFailure(`Unknown agent "${task.agent}".`);
     const system = buildSystemPrompt(agent, config);
-    const llmTools = tools.toLlmTools(agent.tools);
+    // Hide tools whose data classes this agent may not see (e.g. client data from coding agents).
+    const llmTools = tools.toLlmTools(agent.tools.filter((n) => {
+      const t = tools.get(n);
+      return t !== undefined && forbiddenDataClasses(t, agent).length === 0;
+    }));
 
     let messages = (await store.getMessages(task.id)) as LlmMessage[];
     if (messages.length === 0) {
@@ -249,7 +253,13 @@ ${task.input}`;
         continue;
       }
 
-      const policy = decide({ tool, taskScope: task.scope, paused: await store.isPaused() });
+      const policy = decide({
+        tool,
+        taskScope: task.scope,
+        paused: await store.isPaused(),
+        modulePaused: await store.isModulePaused(tool.module ?? "core_agent"),
+        agent,
+      });
       let row = await store.upsertToolCall({
         taskId: task.id,
         toolUseId: tu.id,

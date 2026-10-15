@@ -2,13 +2,17 @@ import { Bot, InlineKeyboard, type Context } from "grammy";
 import type { Logger } from "pino";
 import type { Config } from "../config.js";
 import { integrationStatus } from "../config.js";
-import type { ApprovalRequest, Notifier } from "../core/notifier.js";
+import type { ApprovalRequest, Button, Notifier } from "../core/notifier.js";
 import type { AgentRegistry } from "../core/registry.js";
 import type { TaskRunner } from "../core/runner.js";
-import type { Scope } from "../core/types.js";
+import { MODULES, type ModuleName, type Scope } from "../core/types.js";
 import type { Store, TaskRow } from "../db/store.js";
 import type { GoogleAuthManager } from "../integrations/google/oauth.js";
 import { triggerBriefing } from "../scheduler/briefings.js";
+import { loadProfile, profileGaps } from "../opportunities/profile.js";
+import { formatOpportunity } from "../opportunities/report.js";
+import { opportunityButtons, parseOpportunityCallback, type OpportunityService } from "../opportunities/service.js";
+import type { OpportunityStore } from "../opportunities/store.js";
 import { approvalCallbackData, chunkMessage, isOwner, parseApprovalCallback, parseRemember, parseScope, taskTitle } from "./parse.js";
 
 export class TelegramNotifier implements Notifier {
@@ -22,6 +26,25 @@ export class TelegramNotifier implements Notifier {
     for (const part of chunkMessage(text)) {
       try {
         await this.bot.api.sendMessage(chatId ?? this.ownerId, part, { link_preview_options: { is_disabled: true } });
+      } catch (err) {
+        this.log.error({ err }, "telegram send failed");
+      }
+    }
+  }
+
+  async sendWithButtons(chatId: number | null, text: string, buttons: Button[][]): Promise<void> {
+    const parts = chunkMessage(text);
+    const kb = new InlineKeyboard();
+    buttons.forEach((row, i) => {
+      row.forEach((b) => kb.text(b.text, b.data));
+      if (i < buttons.length - 1) kb.row();
+    });
+    for (let i = 0; i < parts.length; i++) {
+      try {
+        await this.bot.api.sendMessage(chatId ?? this.ownerId, parts[i]!, {
+          link_preview_options: { is_disabled: true },
+          ...(i === parts.length - 1 ? { reply_markup: kb } : {}),
+        });
       } catch (err) {
         this.log.error({ err }, "telegram send failed");
       }
@@ -60,10 +83,18 @@ Accounts
 /connect_google business|personal
 /disconnect_google business|personal
 
+Opportunities
+/opps — pipeline and top opportunities
+/opp <id> — full recommendation
+/opp_done <id> <result> — record the outcome
+/profile — what the engine knows about you
+
 Safety
 /status — health, spend, integrations
 /pause — KILL SWITCH: stop all work now
-/resume — resume work`;
+/resume — resume work
+/modules — module status
+/pause_module <name>, /resume_module <name> — pause one module`;
 
 function fmtTask(t: TaskRow): string {
   return `${t.id.slice(0, 8)} [${t.status}] ${t.title} (${t.scope}, $${Number(t.cost_usd).toFixed(3)})`;
@@ -79,6 +110,7 @@ export function registerHandlers(
     google: GoogleAuthManager;
     notifier: Notifier;
     log: Logger;
+    opportunities?: { service: OpportunityService; store: OpportunityStore };
   },
 ): void {
   const { config, store, runner, agents, google, log } = d;
@@ -138,6 +170,20 @@ ${integ}`,
     await store.setPaused(false, "owner");
     await reply(ctx, "✅ Resumed. Halted tasks will continue where they left off.");
   });
+
+  bot.command("modules", async (ctx) => {
+    const paused = await store.pausedModules();
+    await reply(ctx, MODULES.map((m) => `${paused.includes(m) ? "⏸" : "▶️"} ${m}`).join("\n"));
+  });
+
+  for (const [cmd, pause] of [["pause_module", true], ["resume_module", false]] as const) {
+    bot.command(cmd, async (ctx) => {
+      const m = ctx.match.trim() as ModuleName;
+      if (!MODULES.includes(m)) return void (await reply(ctx, `Usage: /${cmd} <${MODULES.join("|")}>`));
+      await store.setModulePaused(m, pause, "owner");
+      await reply(ctx, `${pause ? "⏸ Paused" : "▶️ Resumed"} ${m}.`);
+    });
+  }
 
   bot.command("tasks", async (ctx) => {
     const tasks = await store.recentTasks(15);
@@ -212,7 +258,70 @@ ${integ}`,
     await reply(ctx, `Disconnected Google ${scope} and revoked its token.`);
   });
 
+  if (d.opportunities) {
+    const { service, store: opps } = d.opportunities;
+
+    bot.command("opps", async (ctx) => {
+      const counts = await opps.pipelineCounts();
+      const top = await opps.search({ status: ["qualified", "approved", "in_progress"], limit: 8 });
+      const lines = top.map((o) => `- ${o.id.slice(0, 8)} [${o.status}] ${o.title} — ${Math.round(Number(o.score))}/100`);
+      await reply(
+        ctx,
+        `Pipeline: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(" · ") || "empty"}\n\n${lines.join("\n") || "Nothing qualified yet."}\n\nUse /opp <id> for details.`,
+      );
+    });
+
+    bot.command("opp", async (ctx) => {
+      const o = await opps.findByPrefix(ctx.match.trim());
+      if (!o) return void (await reply(ctx, "Opportunity not found (use the 8-char id from /opps)."));
+      const text = formatOpportunity(o, config.TIMEZONE);
+      if (d.notifier.sendWithButtons) await d.notifier.sendWithButtons(ctx.chat.id, text, opportunityButtons(o.id));
+      else await reply(ctx, text);
+    });
+
+    bot.command("opp_done", async (ctx) => {
+      const [prefix, ...rest] = ctx.match.trim().split(/\s+/);
+      const o = prefix ? await opps.findByPrefix(prefix) : null;
+      if (!o) return void (await reply(ctx, "Usage: /opp_done <id> <what happened>"));
+      await service.feedback(o.id, "completed", "owner", rest.join(" ") || undefined);
+      await reply(ctx, `Recorded the outcome for "${o.title}". Thanks — this tunes future recommendations.`);
+    });
+
+    bot.command("profile", async (ctx) => {
+      const p = await loadProfile(store);
+      const gaps = profileGaps(p);
+      await reply(
+        ctx,
+        `${p.business.legalName} · ${p.business.entityType} · ${p.business.state} (${p.business.metroArea})\nNAICS: ${p.business.naics.join(", ")}\nSAM.gov registered: ${p.business.samRegistered ?? "unknown"}\nCertifications: ${p.business.certifications.join(", ") || "none listed"}\nMax upfront investment: $${p.constraints.maxUpfrontInvestmentUsd} · ~${p.constraints.weeklyHoursAvailable} h/week spare\n${gaps.length ? `\nTo sharpen eligibility checks, tell me:\n- ${gaps.join("\n- ")}` : ""}`,
+      );
+    });
+  }
+
   bot.on("callback_query:data", async (ctx) => {
+    const opp = parseOpportunityCallback(ctx.callbackQuery.data);
+    if (opp && d.opportunities) {
+      const o = await d.opportunities.store.get(opp.id);
+      if (!o) return void (await ctx.answerCallbackQuery({ text: "Not found" }));
+      if (opp.action === "dismiss") {
+        await d.opportunities.service.feedback(o.id, "rejected", "owner");
+        await ctx.answerCallbackQuery({ text: "Dismissed — I'll show fewer like this" });
+        return;
+      }
+      await d.opportunities.service.feedback(o.id, "accepted", "owner");
+      if (opp.action === "prepare") {
+        await store.createTask({
+          title: `Prepare: ${o.title}`.slice(0, 60),
+          input: `Prepare to pursue this opportunity. Read the official page, then produce: (1) an application/bid checklist with every required document and form, (2) key dates, (3) open questions about eligibility, (4) a draft of any narrative or outreach as a Gmail DRAFT if relevant. Do not submit or contact anyone.\n\n${formatOpportunity(o, config.TIMEZONE)}`,
+          scope: "business",
+          source: "telegram",
+          chatId: ctx.chat?.id ?? null,
+        });
+        await ctx.answerCallbackQuery({ text: "Pursuing — preparing a checklist" });
+      } else {
+        await ctx.answerCallbackQuery({ text: "Marked as pursuing" });
+      }
+      return;
+    }
     const parsed = parseApprovalCallback(ctx.callbackQuery.data);
     if (!parsed) return void (await ctx.answerCallbackQuery({ text: "Unknown action" }));
     const r = await store.decideApproval(parsed.approvalId, parsed.approve, "owner");

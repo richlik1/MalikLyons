@@ -6,6 +6,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 COPY test ./test
+COPY scripts ./scripts
 RUN npx tsc -p tsconfig.json && npm prune --omit=dev
 
 FROM node:22-bookworm-slim

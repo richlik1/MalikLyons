@@ -83,6 +83,7 @@ export function gmailTools(auth: GoogleAuthManager): ToolDefinition[] {
     description: "Search the task scope's Gmail. Returns id, sender, subject, date and snippet for each message.",
     input: searchInput,
     risk: "read",
+    dataClasses: ["client_pii", "personal_messages"],
     idempotent: true,
     describeAction: (i) => `Search Gmail: ${i.query}`,
     async run(i, ctx) {
@@ -107,6 +108,7 @@ export function gmailTools(auth: GoogleAuthManager): ToolDefinition[] {
     description: "Read one email (headers and plain-text body) from the task scope's Gmail.",
     input: readInput,
     risk: "read",
+    dataClasses: ["client_pii", "personal_messages"],
     idempotent: true,
     describeAction: (i) => `Read email ${i.message_id}`,
     async run(i, ctx) {
@@ -141,6 +143,7 @@ export function gmailTools(auth: GoogleAuthManager): ToolDefinition[] {
     description: "Save an email as a DRAFT in the task scope's Gmail. Nothing is sent; the owner reviews and sends it from Gmail.",
     input: draftInput,
     risk: "write_internal",
+    dataClasses: ["client_pii", "personal_messages"],
     idempotent: false,
     describeAction: (i) => `Create Gmail draft to ${i.to.join(", ")}: "${i.subject}"`,
     async run(i, ctx) {

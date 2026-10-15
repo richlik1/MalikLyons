@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:key": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
+    "gen:key": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\"",
+    "opp:demo": "tsx scripts/opportunity-demo.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {

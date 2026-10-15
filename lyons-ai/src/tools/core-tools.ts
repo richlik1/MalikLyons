@@ -14,6 +14,7 @@ export const memorySave: ToolDefinition<z.infer<typeof saveInput>> = {
   description: "Save or update a long-term memory (clients, projects, goals, preferences, people, facts). Same kind+subject overwrites.",
   input: saveInput,
   risk: "write_internal",
+  dataClasses: ["client_pii", "personal", "business_internal"],
   idempotent: true,
   describeAction: (i) => `Remember [${i.kind}] ${i.subject}`,
   async run(i, ctx) {
@@ -31,6 +32,7 @@ export const memorySearch: ToolDefinition<z.infer<typeof searchInput>> = {
   description: "Search long-term memory for the task's scope.",
   input: searchInput,
   risk: "read",
+  dataClasses: ["client_pii", "personal", "business_internal"],
   idempotent: true,
   describeAction: (i) => `Search memory: ${i.query}`,
   async run(i, ctx) {
@@ -47,6 +49,7 @@ export const memoryForget: ToolDefinition<z.infer<typeof forgetInput>> = {
   description: "Delete a memory by id. Requires owner approval.",
   input: forgetInput,
   risk: "destructive",
+  dataClasses: ["client_pii", "personal", "business_internal"],
   idempotent: true,
   describeAction: (i) => `Delete memory ${i.memory_id}`,
   async run(i, ctx) {

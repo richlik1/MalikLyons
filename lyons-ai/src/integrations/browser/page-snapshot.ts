@@ -164,6 +164,8 @@ export function browserTools(): ToolDefinition[] {
       "Open an allowlisted web page in an isolated, logged-out browser; return its visible text and save screenshots. Read-only: never logs in, clicks, or submits.",
     input,
     risk: "read",
+    module: "browser",
+    dataClasses: ["public"],
     idempotent: true,
     describeAction: (i) => `Open ${i.url} in the isolated browser and capture it`,
     async run(i, ctx) {

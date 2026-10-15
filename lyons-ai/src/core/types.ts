@@ -27,6 +27,30 @@ export const APPROVAL_REQUIRED_RISKS: ReadonlySet<Risk> = new Set([
   "legal",
 ]);
 
+/**
+ * Independently pausable modules (Control Center). Pausing a module denies its
+ * tools and stops its background jobs; the global kill switch stops everything.
+ */
+export const MODULES = [
+  "core_agent",
+  "opportunities",
+  "gmail_cleanup",
+  "client_relationships",
+  "communications",
+  "receptionist",
+  "browser",
+  "device_storage",
+] as const;
+export type ModuleName = (typeof MODULES)[number];
+
+/**
+ * Data classes a tool can expose to the model. Agents declare which classes they
+ * may see; a coding agent, for example, never receives client or personal data
+ * unless the owner explicitly grants it.
+ */
+export const DATA_CLASSES = ["public", "business_internal", "client_pii", "personal_messages", "personal", "financial"] as const;
+export type DataClass = (typeof DATA_CLASSES)[number];
+
 export interface ToolContext {
   taskId: string;
   scope: Scope;
@@ -52,6 +76,10 @@ export interface ToolDefinition<I = any> {
   risk: Risk;
   /** Scopes this tool may operate in. Omit for both. */
   scopes?: Scope[];
+  /** Module this tool belongs to; pausing the module denies the tool. Defaults to core_agent. */
+  module?: ModuleName;
+  /** Data classes this tool reads or returns. Defaults to ["business_internal"]. */
+  dataClasses?: DataClass[];
   /**
    * Whether it is safe to execute again if a crash left the outcome unknown.
    * Non-idempotent tools are never re-run automatically; the owner is told to verify.
@@ -69,4 +97,9 @@ export interface AgentDefinition {
   instructions: string;
   /** Tool names this agent may use. Unknown/unregistered names are ignored. */
   tools: string[];
+  /**
+   * Data classes this agent may see. Omit for full access (chief of staff).
+   * Tools exposing any other class are hidden from the agent and denied by policy.
+   */
+  dataAccess?: DataClass[];
 }
