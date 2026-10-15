@@ -1,0 +1,36 @@
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > moves a real record through DISCOVERED → VERIFIED → SCORED → SAVED → ACTION PREPARED → REPORTED 151ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > maps bands to statuses: investigate → qualified, watchlist → verified, below 50 → archived (never notified) 108ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > suppresses duplicates across runs (source id and title+organization fingerprint) 113ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > hard-excludes unverifiable, expired, too-tight, ineligible and unaffordable items with reasons 186ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > does not store items whose verification call errors, and stops on rate limits 98ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > morning brief: top three, one recommended action, changes since the previous briefing; evening review summarises the day 206ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > records owner feedback, learns within bounds, and pushes approved items to StayOps when enabled 212ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > evening recheck closes dead items and alerts on material changes once, never repeating the same information 179ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > runs the 7 AM cycle (discovery then brief) and the 7 PM cycle (recheck then review), once each 278ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > skips email-alert sources while Google is not connected instead of counting failures 164ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > tracks API usage and cost per run 162ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > prevents duplicate concurrent runs with an advisory lock 97ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > recovers runs interrupted by a restart and finishes them 161ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > handles source failure: retries with backoff, dead-letters, still briefs, and the circuit breaker disables a dead source 289ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > skips a source once its daily API limit is reached 182ms
+ ✓ test/integration/opportunities.test.ts > Opportunity Intelligence Department (Postgres) > twice-daily scheduler > does nothing while the module is paused or the kill switch is on 117ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > completes a simple task, records spend and audit, and reports to the owner 112ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > runs allowed read tools without approval and feeds results back 123ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > pauses for approval, executes exactly once after approval, then finishes 122ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > tells the model when the owner rejects, without executing 110ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > expired approvals are treated as rejections 112ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > does NOT re-run a non-idempotent action interrupted mid-execution; marks it outcome_unknown and warns 128ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > safely re-runs an idempotent action interrupted mid-execution 127ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > resumes from the persisted transcript after a crash without repeating model calls 118ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > kill switch halts a running task, blocks new work, and resumes where it stopped 142ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > enforces the daily spending limit before calling the model 61ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > enforces the per-task spending limit across turns 107ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > times out stuck tasks 264ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > stops at the turn limit 104ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > denies business-only tools in personal tasks, and rejects unknown tools and bad input 109ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > handles refusals and truncation as clear failures 76ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > cancels a task 124ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > marks memories saved by the agent as untrusted when recalled 101ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > hides and denies tools whose data classes the agent may not see (coding agents never get client data) 97ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > denies tools of a module paused in the Control Center 104ms
+ ✓ test/integration/runner.test.ts > TaskRunner (Postgres) > keeps the audit log append-only 61ms

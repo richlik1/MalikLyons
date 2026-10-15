@@ -74,3 +74,14 @@ export function stripHtml(html: string): string {
     .replace(/\n\s*\n+/g, "\n")
     .trim();
 }
+
+/** Classifies the money involved from source text. Conservative: unknown unless the text says so. */
+export function inferFundingType(text: string): "grant" | "loan" | "reimbursement" | "paid_program" | "tax_incentive" | "unknown" {
+  const t = text.toLowerCase();
+  if (/\b(loan|microloan|line of credit|financing at \d|interest rate)\b/.test(t)) return "loan";
+  if (/\breimburse(ment|d|s)?\b/.test(t)) return "reimbursement";
+  if (/\btax (credit|abatement|incentive|exemption)\b/.test(t)) return "tax_incentive";
+  if (/\b(tuition|registration fee|enrollment fee|cost to attend|program fee)\b/.test(t)) return "paid_program";
+  if (/\bgrants?\b/.test(t)) return "grant";
+  return "unknown";
+}

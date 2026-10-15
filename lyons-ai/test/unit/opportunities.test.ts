@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { assessEligibility, confidenceFor, hardReject, learnedAdjustment, scamSignals, scoreOpportunity } from "../../src/opportunities/assess.js";
+import { assessEligibility, bandFor, confidenceFor, DEFAULT_SCORING, explainScore, hardReject, learnedAdjustment, scamSignals, scoreOpportunity } from "../../src/opportunities/assess.js";
+import { allocateUnits, DEFAULT_SOURCES } from "../../src/opportunities/registry.js";
+import { lockKey } from "../../src/opportunities/scheduler.js";
+import { GitHubSource } from "../../src/opportunities/sources/github.js";
+import { authPassed, EmailAlertSource, extractLinks } from "../../src/opportunities/sources/email-alerts.js";
+import { inferFundingType } from "../../src/opportunities/sources/http.js";
+import { typeTags } from "../../src/opportunities/report.js";
+import { departmentForCategory } from "../../src/opportunities/types.js";
 import { DEFAULT_PROFILE, profileGaps } from "../../src/opportunities/profile.js";
 import { formatOpportunity } from "../../src/opportunities/report.js";
 import { localClock, webResearchCategories } from "../../src/opportunities/scheduler.js";
@@ -93,40 +100,198 @@ describe("hard filters", () => {
   });
 });
 
-describe("scoring", () => {
+describe("scoring (blueprint 7-factor model)", () => {
   const elig = assessEligibility(grant(), DEFAULT_PROFILE);
-  it("is deterministic, bounded 0..100, and explains itself", () => {
-    const s = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { now: NOW, openCommitments: 0 });
-    expect(s.total).toBeGreaterThan(0);
-    expect(s.total).toBeLessThanOrEqual(100);
-    expect(s.total).toBe(s.value + s.fit + s.feasibility + s.timing + s.cost + s.learned);
-    expect(scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { now: NOW, openCommitments: 0 })).toEqual(s);
+  const ctx = { now: NOW, openCommitments: 0, verificationMethod: "api:grants.gov/fetchOpportunity" };
+
+  it("is deterministic, bounded by each factor's maximum, and sums to the total", () => {
+    const s = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, ctx);
+    expect(s.strategicFit).toBeLessThanOrEqual(20);
+    expect(s.financialUpside).toBeLessThanOrEqual(20);
+    expect(s.executionProbability).toBeLessThanOrEqual(20);
+    expect(s.capitalAffordability).toBeLessThanOrEqual(15);
+    expect(s.timeEffort).toBeLessThanOrEqual(10);
+    expect(s.timingUrgency).toBeLessThanOrEqual(10);
+    expect(s.evidenceQuality).toBeLessThanOrEqual(5);
+    expect(s.total).toBe(s.strategicFit + s.financialUpside + s.executionProbability + s.capitalAffordability + s.timeEffort + s.timingUrgency + s.evidenceQuality);
+    expect(scoreOpportunity(grant(), elig, DEFAULT_PROFILE, ctx)).toEqual(s);
+    expect(explainScore(s)).toMatch(/^fit \d+\/20 · upside \d+\/20 · execution \d+\/20 · capital \d+\/15 · effort \d+\/10 · timing \d+\/10 · evidence \d\/5$/);
   });
 
-  it("ranks a confirmed large local-fit item above an unknown-value, far-off one", () => {
-    const strong = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { now: NOW, openCommitments: 0 });
-    const weak = scoreOpportunity(grant({ amountMax: undefined, deadlineAt: inDays(200), title: "Research fellowship" }), elig, DEFAULT_PROFILE, { now: NOW, openCommitments: 0 });
-    expect(strong.total).toBeGreaterThan(weak.total);
-    expect(weak.notes).toContain("Dollar value not stated by the source");
+  it("maps totals to the blueprint priority bands", () => {
+    expect(bandFor(85)).toBe("high");
+    expect(bandFor(84)).toBe("investigate");
+    expect(bandFor(70)).toBe("investigate");
+    expect(bandFor(69)).toBe("watchlist");
+    expect(bandFor(50)).toBe("watchlist");
+    expect(bandFor(49)).toBe("archive");
   });
 
-  it("penalises heavy workload and cost sharing", () => {
-    const base = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { now: NOW, openCommitments: 0 });
-    expect(scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { now: NOW, openCommitments: 6 }).total).toBeLessThan(base.total);
-    expect(scoreOpportunity(grant({ costSharing: true }), elig, DEFAULT_PROFILE, { now: NOW, openCommitments: 0 }).total).toBeLessThan(base.total);
+  it("supports configurable weights and bands", () => {
+    const cfg = { weights: { ...DEFAULT_SCORING.weights, evidenceQuality: 0, strategicFit: 25 }, bands: { high: 90, investigate: 60, watchlist: 40 } };
+    const s = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { ...ctx, config: cfg });
+    expect(s.evidenceQuality).toBe(0);
+    expect(s.strategicFit).toBeLessThanOrEqual(25);
+    expect(bandFor(65, cfg)).toBe("investigate");
+  });
+
+  it("counts loans and paid programs far below grants, and says so", () => {
+    const g = scoreOpportunity(grant({ fundingType: "grant" }), elig, DEFAULT_PROFILE, ctx);
+    const loan = scoreOpportunity(grant({ fundingType: "loan" }), elig, DEFAULT_PROFILE, ctx);
+    const paid = scoreOpportunity(grant({ fundingType: "paid_program" }), elig, DEFAULT_PROFILE, ctx);
+    expect(loan.financialUpside).toBeLessThan(g.financialUpside);
+    expect(paid.financialUpside).toBeLessThan(loan.financialUpside);
+    expect(loan.notes.join(" ")).toMatch(/loan, not a grant/);
+  });
+
+  it("scores projected (forecast) procurements lower and labels them", () => {
+    const open = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, ctx);
+    const forecast = scoreOpportunity(grant({ opportunityType: "forecast" }), elig, DEFAULT_PROFILE, ctx);
+    expect(forecast.total).toBeLessThan(open.total);
+    expect(forecast.notes.join(" ")).toMatch(/Projected procurement/);
+    expect(typeTags({ opportunity_type: "forecast", funding_type: "loan" })).toEqual(["PROJECTED — not yet open", "LOAN — must be repaid"]);
+  });
+
+  it("rewards stronger evidence (API > official page > other page > email)", () => {
+    const at = (m: string, url?: string) => scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { ...ctx, verificationMethod: m, verifiedUrl: url }).evidenceQuality;
+    expect(at("api:x")).toBe(5);
+    expect(at("page:primary-url", "https://www.michigan.gov/x")).toBe(4);
+    expect(at("page:primary-url", "https://example.com/x")).toBe(3);
+    expect(at("email:official-alert")).toBeLessThan(at("page:primary-url", "https://example.com/x"));
+  });
+
+  it("penalises heavy workload and cost sharing; never best-cases unknown capital", () => {
+    const base = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, ctx);
+    expect(scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { ...ctx, openCommitments: 6 }).total).toBeLessThan(base.total);
+    expect(scoreOpportunity(grant({ costSharing: true }), elig, DEFAULT_PROFILE, ctx).capitalAffordability).toBeLessThan(base.capitalAffordability);
+    expect(base.capitalAffordability).toBeLessThan(15);
+    expect(scoreOpportunity(grant({ capitalRequiredUsd: 0 }), elig, DEFAULT_PROFILE, ctx).capitalAffordability).toBe(15);
+  });
+
+  it("hard-excludes unaffordable capital regardless of upside", () => {
+    const r = hardReject(grant({ capitalRequiredUsd: 250_000, amountMax: 10_000_000 }), elig, DEFAULT_PROFILE, NOW, okV);
+    expect(r?.reason).toMatch(/Requires \$250,000 upfront, above your \$5,000 limit/);
   });
 
   it("learning is bounded and needs at least 3 decisions", () => {
     expect(learnedAdjustment({ accepted: 2, rejected: 0 })).toBe(0);
     expect(learnedAdjustment({ accepted: 0, rejected: 50 })).toBeGreaterThanOrEqual(-10);
     expect(learnedAdjustment({ accepted: 50, rejected: 0 })).toBeLessThanOrEqual(10);
-    expect(learnedAdjustment({ accepted: 0, rejected: 5 })).toBeLessThan(0);
+    const down = scoreOpportunity(grant(), elig, DEFAULT_PROFILE, { ...ctx, feedback: { accepted: 0, rejected: 10 } });
+    expect(down.strategicFit).toBeLessThan(scoreOpportunity(grant(), elig, DEFAULT_PROFILE, ctx).strategicFit);
   });
 
   it("confidence is high only for authoritative, confirmed, clear items", () => {
     expect(confidenceFor(grant(), { ...okV, method: "api:grants.gov" }, elig)).toBe("high");
     expect(confidenceFor(grant(), { ...okV, method: "page:primary-url" }, { ...elig, eligibility: "unclear" })).toBe("medium");
     expect(confidenceFor(grant({ deadlineConfirmed: false }), { ...okV, method: "page:primary-url" }, elig)).toBe("low");
+  });
+});
+
+describe("departments, allocation and registry helpers", () => {
+  it("allocates research effort to match 30/20/15/15/10/10 over time", () => {
+    const zero = { contracts: 0, grants: 0, ventures: 0, real_estate: 0, personal_growth: 0, technology: 0 };
+    const picks = allocateUnits(100, zero);
+    const count = (d: string) => picks.filter((p) => p === d).length;
+    expect(count("contracts")).toBe(30);
+    expect(count("grants")).toBe(20);
+    expect(count("ventures")).toBe(15);
+    expect(count("real_estate")).toBe(15);
+    expect(count("personal_growth")).toBe(10);
+    expect(count("technology")).toBe(10);
+    // An under-served department catches up first.
+    expect(allocateUnits(1, { ...zero, contracts: 30, grants: 0 })[0]).toBe("grants");
+  });
+
+  it("maps categories to departments", () => {
+    expect(departmentForCategory("development")).toBe("personal_growth");
+    expect(departmentForCategory("operations")).toBe("technology");
+    expect(departmentForCategory("grants_financing")).toBe("grants");
+  });
+
+  it("seeds the blueprint's official sources with honest access notes", () => {
+    const ids = DEFAULT_SOURCES.map((s) => s.id);
+    for (const id of ["mi_sigma_vss", "mi_vendor_dashboard", "detroit_ocp", "sam_gov", "grants_gov", "sba", "detroit_land_bank", "detroit_property_portal", "mi_sbdc", "github"]) {
+      expect(ids).toContain(id);
+    }
+    expect(DEFAULT_SOURCES.find((s) => s.id === "mi_vendor_dashboard")!.opportunity_type).toBe("forecast");
+    expect(DEFAULT_SOURCES.find((s) => s.id === "mi_sigma_vss")!.kind).toBe("email_alerts"); // never logs in to the portal
+  });
+
+  it("classifies funding type conservatively", () => {
+    expect(inferFundingType("Small Business Loan Program")).toBe("loan");
+    expect(inferFundingType("Matching grant for facade improvements")).toBe("grant");
+    expect(inferFundingType("Costs are reimbursed after completion of training")).toBe("reimbursement");
+    expect(inferFundingType("Leadership academy, tuition $1,200")).toBe("paid_program");
+    expect(inferFundingType("Business support program")).toBe("unknown");
+  });
+
+  it("derives stable advisory-lock keys", () => {
+    expect(lockKey("discover:grants_gov|2026-10-15#morning")).toBe(lockKey("discover:grants_gov|2026-10-15#morning"));
+    expect(lockKey("a")).not.toBe(lockKey("b"));
+  });
+});
+
+describe("GitHub source (fixtures shaped like the REST API)", () => {
+  const repo = {
+    full_name: "acme/str-cleaning-scheduler",
+    html_url: "https://github.com/acme/str-cleaning-scheduler",
+    description: "Turnover scheduling for short-term rental cleaning teams",
+    stargazers_count: 420,
+    forks_count: 31,
+    pushed_at: "2026-10-10T12:00:00Z",
+    created_at: "2025-01-01T00:00:00Z",
+    archived: false,
+    license: { spdx_id: "MIT" },
+    topics: ["property-management"],
+    owner: { login: "acme" },
+  };
+
+  it("searches with recency/stars filters, counts requests, and verifies the repo record", async () => {
+    const { f, calls } = fakeFetch({ "/search/repositories": () => json({ items: [repo] }), "/repos/acme/str-cleaning-scheduler": () => json(repo) });
+    const src = new GitHubSource({ fetchImpl: f, queries: ["topic:property-management"], now: () => NOW });
+    const out = await src.discover(DEFAULT_PROFILE, new AbortController().signal);
+    expect(out[0]).toMatchObject({ source: "github", sourceId: "acme/str-cleaning-scheduler", category: "technology", fundingType: "free", capitalRequiredUsd: 0 });
+    expect(out[0]!.signals).toMatchObject({ stars: 420, license: "MIT", daysSincePush: 5 });
+    expect(decodeURIComponent(calls[0]!.url)).toMatch(/topic:property-management pushed:>2026-09-15 stars:>=50 archived:false/);
+    const v = await src.verify(out[0]!, new AbortController().signal);
+    expect(v).toMatchObject({ ok: true, method: "api:github/repos" });
+    expect(src.requests).toBe(2);
+    expect(assessEligibility(out[0]!, DEFAULT_PROFILE).eligibility).toBe("eligible");
+  });
+
+  it("fails verification for archived repos and reports 403 reasons honestly", async () => {
+    const archived = fakeFetch({ "/repos/": () => json({ ...repo, archived: true }) });
+    const c = new GitHubSource({ now: () => NOW }).toCandidate(repo);
+    expect((await new GitHubSource({ fetchImpl: archived.f, now: () => NOW }).verify(c, new AbortController().signal)).ok).toBe(false);
+    const blocked = fakeFetch({ "/search/": () => json({ message: "API path not available" }, 403) });
+    await expect(new GitHubSource({ fetchImpl: blocked.f }).discover(DEFAULT_PROFILE, new AbortController().signal)).rejects.toThrow(/HTTP 403 API path not available/);
+    const limited = fakeFetch({ "/search/": () => new Response("{}", { status: 403, headers: { "x-ratelimit-remaining": "0" } }) });
+    await expect(new GitHubSource({ fetchImpl: limited.f }).discover(DEFAULT_PROFILE, new AbortController().signal)).rejects.toThrow(/rate limited/);
+  });
+});
+
+describe("official email alerts", () => {
+  const entry = { id: "mi_sigma_vss", domains: ["michigan.gov"], opportunity_type: "open_solicitation" as const, config: { category: "contracts" as const, senderDomains: ["michigan.gov"] } };
+
+  it("accepts alerts only from official senders with passing DMARC/SPF", async () => {
+    const src = new EmailAlertSource(entry, async () => null);
+    const base = { source: "email_alerts", sourceId: "m1", category: "contracts" as const, title: "New solicitation: Custodial Services", url: "https://www.michigan.gov/x", raw: {} };
+    const ok = await src.verify({ ...base, raw: { from: "SIGMA <noreply@michigan.gov>", authResults: "mx.google.com; dmarc=pass (p=REJECT) header.from=michigan.gov", links: [] } });
+    expect(ok.ok).toBe(true);
+    const spoofed = await src.verify({ ...base, raw: { from: "SIGMA <noreply@michigan.gov>", authResults: "mx.google.com; dmarc=fail header.from=michigan.gov", links: [] } });
+    expect(spoofed.ok).toBe(false);
+    const wrongSender = await src.verify({ ...base, raw: { from: "x@michigan-gov-bids.com", authResults: "dmarc=pass header.from=michigan-gov-bids.com", links: [] } });
+    expect(wrongSender.ok).toBe(false);
+  });
+
+  it("extracts only portal links on the source's domains", () => {
+    expect(extractLinks("See https://sigma.michigan.gov/abc and https://evil.example/x.", ["michigan.gov"])).toEqual(["https://sigma.michigan.gov/abc"]);
+    expect(authPassed("spf=pass smtp.mailfrom=bounce@mail.michigan.gov", "michigan.gov")).toBe(true);
+  });
+
+  it("refuses to run without a connected business Gmail", async () => {
+    await expect(new EmailAlertSource(entry, async () => null).discover(DEFAULT_PROFILE, new AbortController().signal)).rejects.toThrow(/not connected/);
   });
 });
 
@@ -341,12 +506,12 @@ describe("web research verification", () => {
 describe("scheduler helpers, callbacks, report card", () => {
   it("computes the local clock in the owner's timezone", () => {
     const c = localClock(new Date("2026-10-15T03:30:00Z"), "America/New_York");
-    expect(c).toMatchObject({ date: "2026-10-14", hour: 23, weekday: 3, isoWeek: "2026-W42" });
+    expect(c).toMatchObject({ date: "2026-10-14", hour: 23, minute: 30, weekday: 3, isoWeek: "2026-W42" });
   });
 
   it("rotates web research categories", () => {
     expect(webResearchCategories(0)).toEqual(["contracts", "grants_financing"]);
-    expect(webResearchCategories(6)).toEqual(["operations", "contracts"]);
+    expect(webResearchCategories(6)).toEqual(["operations", "technology"]);
   });
 
   it("round-trips opportunity button callbacks within 64 bytes", () => {

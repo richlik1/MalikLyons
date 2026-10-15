@@ -23,7 +23,7 @@ const optionalString = z
 const ConfigSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.string().default("info"),
-  TIMEZONE: z.string().default("America/New_York"),
+  TIMEZONE: z.string().default("America/Detroit"),
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   /** base64-encoded 32-byte key used for AES-256-GCM encryption of OAuth tokens. */
@@ -54,6 +54,8 @@ const ConfigSchema = z.object({
 
   STAYOPS_API_BASE_URL: optionalString,
   STAYOPS_API_TOKEN: optionalString,
+  /** Push owner-approved opportunities into StayOps as tasks (proposed endpoint; off until StayOps supports it). */
+  STAYOPS_TASKS_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 
   BROWSER_ALLOWED_DOMAINS: csv,
   BROWSER_EXECUTABLE_PATH: optionalString,
@@ -65,6 +67,14 @@ const ConfigSchema = z.object({
   /** Free key from SAM.gov → Account Details. Enables federal contract discovery. */
   SAM_API_KEY: optionalString,
   OPP_DISCOVERY_EVERY_HOURS: z.coerce.number().int().min(1).max(168).default(12),
+  /** Blueprint schedule (owner timezone): morning discovery + brief, evening verification + review. */
+  OPP_MORNING_HOUR: z.coerce.number().int().min(0).max(23).default(7),
+  OPP_EVENING_HOUR: z.coerce.number().int().min(0).max(23).default(19),
+  /** Web-research units per cycle, split across departments by the allocation (30/20/15/15/10/10). */
+  OPP_WEB_UNITS_PER_CYCLE: z.coerce.number().int().min(0).max(20).default(3),
+  OPP_WEEKLY_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  /** Optional: raises GitHub API limits for the technology department. */
+  GITHUB_TOKEN: optionalString,
   OPP_DAILY_HOUR: z.coerce.number().int().min(0).max(23).default(7),
   OPP_WEEKLY_DAY: z.coerce.number().int().min(0).max(6).default(1), // 0=Sunday
   OPP_WEEKLY_HOUR: z.coerce.number().int().min(0).max(23).default(8),

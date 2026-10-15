@@ -80,7 +80,7 @@ export function opportunityTools(opps: OpportunityStore, service: OpportunitySer
     },
   };
 
-  const runInput = z.object({ source: z.enum(["grants_gov", "sam_gov", "web_research"]) });
+  const runInput = z.object({ source: z.enum(["grants_gov", "sam_gov", "github", "web_research"]) });
   const runNow: ToolDefinition<z.infer<typeof runInput>> = {
     name: "opportunity_research_now",
     description: "Run one discovery pass on a source now (normally automatic). Returns counts of new, verified, rejected and qualified items.",

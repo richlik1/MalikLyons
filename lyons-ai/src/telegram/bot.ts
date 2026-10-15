@@ -13,6 +13,8 @@ import { loadProfile, profileGaps } from "../opportunities/profile.js";
 import { formatOpportunity } from "../opportunities/report.js";
 import { opportunityButtons, parseOpportunityCallback, type OpportunityService } from "../opportunities/service.js";
 import type { OpportunityStore } from "../opportunities/store.js";
+import type { SourceRegistry } from "../opportunities/registry.js";
+import type { OpportunityScheduler } from "../opportunities/scheduler.js";
 import type { AutomationPolicies } from "../clients/policies.js";
 import type { ClientService } from "../clients/service.js";
 import { approvalCallbackData, chunkMessage, isOwner, parseApprovalCallback, parseRemember, parseScope, taskTitle } from "./parse.js";
@@ -90,6 +92,10 @@ Opportunities
 /opp <id> — full recommendation
 /opp_done <id> <result> — record the outcome
 /profile — what the engine knows about you
+/sources — research sources and their health
+/source_enable <id>, /source_disable <id>
+/opp_runs — recent research runs · /opp_costs — research cost
+/opp_retry <job> — retry a dead-lettered job
 
 Clients & communications
 /followups — unanswered client requests and what's coming up
@@ -120,7 +126,7 @@ export function registerHandlers(
     google: GoogleAuthManager;
     notifier: Notifier;
     log: Logger;
-    opportunities?: { service: OpportunityService; store: OpportunityStore };
+    opportunities?: { service: OpportunityService; store: OpportunityStore; registry?: SourceRegistry; scheduler?: OpportunityScheduler };
     comms?: { clients: ClientService; policies: AutomationPolicies };
   },
 ): void {
@@ -296,6 +302,44 @@ ${integ}`,
       if (!o) return void (await reply(ctx, "Usage: /opp_done <id> <what happened>"));
       await service.feedback(o.id, "completed", "owner", rest.join(" ") || undefined);
       await reply(ctx, `Recorded the outcome for "${o.title}". Thanks — this tunes future recommendations.`);
+    });
+
+    bot.command("sources", async (ctx) => {
+      if (!d.opportunities?.registry) return void (await reply(ctx, "Source registry not available."));
+      const list = await d.opportunities.registry.list();
+      await reply(
+        ctx,
+        list
+          .map(
+            (s) =>
+              `${s.enabled ? (s.consecutive_failures ? "⚠️" : "✅") : "⏸"} ${s.id} — ${s.name} [${s.department}, ${s.kind}]${s.consecutive_failures ? ` · ${s.consecutive_failures} failure(s): ${s.last_error ?? ""}` : ""}${s.disabled_reason ? ` · ${s.disabled_reason}` : ""}`,
+          )
+          .join("\n"),
+      );
+    });
+
+    for (const [cmd, enable] of [["source_enable", true], ["source_disable", false]] as const) {
+      bot.command(cmd, async (ctx) => {
+        const id = ctx.match.trim();
+        const ok = id && d.opportunities?.registry ? await d.opportunities.registry.setEnabled(id, enable, "disabled by owner") : false;
+        await reply(ctx, ok ? `${enable ? "Enabled" : "Disabled"} source ${id}.` : `Usage: /${cmd} <id> (see /sources)`);
+      });
+    }
+
+    bot.command("opp_runs", async (ctx) => {
+      const runs = (await opps.recentRuns(15)) as { job: string; slot: string; status: string; attempt: number; api_calls: number; error: string | null }[];
+      await reply(ctx, runs.map((r) => `${r.status === "succeeded" ? "✅" : r.status === "skipped" ? "⏭" : r.status === "running" ? "⏳" : "❌"} ${r.job} ${r.slot} · attempt ${r.attempt} · ${r.api_calls} req${r.error ? ` · ${r.error.slice(0, 80)}` : ""}`).join("\n") || "No runs yet.");
+    });
+
+    bot.command("opp_costs", async (ctx) => {
+      const rows = await opps.costSummary(7, config.TIMEZONE);
+      const total = rows.reduce((a, r) => a + r.llmUsd, 0);
+      await reply(ctx, `Research cost, last 7 days: $${total.toFixed(2)}\n${rows.map((r) => `- ${r.sourceId ?? "other"}: $${r.llmUsd.toFixed(2)} · ${r.requests} API request(s)`).join("\n") || "- nothing yet"}`);
+    });
+
+    bot.command("opp_retry", async (ctx) => {
+      const ok = d.opportunities?.scheduler ? await d.opportunities.scheduler.retryDeadLetter(ctx.match.trim()) : false;
+      await reply(ctx, ok ? "Queued for retry on the next scheduler tick." : "No dead-lettered run with that job name (see /opp_runs).");
     });
 
     bot.command("profile", async (ctx) => {

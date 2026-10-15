@@ -46,6 +46,63 @@ Public: `/oauth/google/callback` and `/voice/*` (Twilio; signature-checked). Eve
 
 Briefings are idempotent per day: if n8n retries, it won't create a duplicate.
 
+## 4b. Opportunity Intelligence: activate the 7 AM and 7 PM schedules
+
+These cycles run **inside the `lyons-ai` process**, not in n8n. They are durable: they are recorded in Postgres, guarded by advisory locks, and caught up after a restart.
+
+1. **Set these in `.env`:**
+   ```
+   TIMEZONE=America/Detroit
+   OPP_ENABLED=true
+   OPP_MORNING_HOUR=7
+   OPP_EVENING_HOUR=19
+   OPP_WEB_UNITS_PER_CYCLE=3
+   OPP_MAX_ALERTS_PER_DAY=2
+   OPP_DAILY_RESEARCH_BUDGET_USD=1.5
+   ANTHROPIC_API_KEY=...                 # web research (the 30/20/15/15/10/10 departments)
+   SAM_API_KEY=...                       # sam.gov → Account Details → Public API Key
+   GITHUB_TOKEN=...                      # optional; fine-grained token with no scopes
+   TELEGRAM_BOT_TOKEN=... TELEGRAM_OWNER_USER_ID=...
+   ```
+2. **Allow outbound HTTPS** from the VM to:
+   - `api.grants.gov`, `www.grants.gov` and `api.sam.gov`
+   - `api.github.com`
+   - `api.anthropic.com` and `api.telegram.org`
+   - plus the registry domains: `michigan.gov`, `detroitmi.gov`, `sba.gov`, `michiganbusiness.org`, `michigansbdc.org`, `buildingdetroit.org`, `eventbrite.com`, and the rest of the `domains` lists in `src/opportunities/registry.ts`
+
+   A default VM allows all of these. Only egress-filtered hosts need the list.
+3. **Restart** with `docker compose up -d`. Then check the logs (`docker compose logs lyons-ai | grep -i opportunit`) and `curl -s localhost:8080/healthz | jq .opportunities`. `schedulerLastTick` should update every minute.
+4. **Verify once by hand before the first scheduled run:**
+   ```bash
+   docker compose exec lyons-ai node dist/scripts/opportunity-demo.js
+   ```
+   Expect `discover:grants_gov` with status `succeeded` and at least one stored, verified Grants.gov record, with its stage history and prepared checklist. If it shows `network error`, fix egress (step 2).
+5. **Optional: connect alert emails.**
+   - Michigan SIGMA VSS: register at https://www.michigan.gov/dtmb/procurement/contractconnect/how-to-register and pick your commodity codes.
+   - City of Detroit: register as a supplier at https://detroitmi.gov/supplier (Bonfire).
+   - Then run `/connect_google business` in Telegram. Until Google is connected, these two sources show as *skipped*, not failed.
+6. **Set your profile** in Telegram: `/profile`, then answer the listed gaps. Examples: "I'm registered in SAM.gov", "max upfront $5,000", "10 hours a week". Eligibility scoring depends on it.
+7. **Confirm in Telegram:**
+   - `/sources` shows all sources as enabled.
+   - The 🌅 Morning brief arrives after 07:00 and the 🌙 Evening review after 19:00.
+   - `/opp_runs` shows one succeeded run per job per slot.
+8. **Two messages at 7 AM:** the n8n executive briefing (section 4) and the opportunity brief are separate. If you prefer one, move the n8n morning time, e.g. to 07:15.
+
+To pause: `/pause` (everything) or the Control Center's `opportunities` module toggle. To turn the schedules off: `OPP_ENABLED=false`, then restart.
+
+## Final deployment checklist
+- [ ] VM provisioned, DNS A record set, host hardened (section 1)
+- [ ] `.env` filled in and `chmod 600`. `MASTER_ENCRYPTION_KEY` generated and backed up offline.
+- [ ] `docker compose up -d --build` is healthy: `/healthz` returns ok and migrations through `006` have been applied
+- [ ] Telegram: `/status` replies only to your user id
+- [ ] Google business and personal connected; the Gmail draft and calendar checks in `STATUS.md` pass
+- [ ] Opportunity demo stored a real verified record (section 4b, step 4). Record it in `STATUS.md`.
+- [ ] First 07:00 Morning brief and 19:00 Evening review received
+- [ ] Approval path tested: tapping Reject causes no external action
+- [ ] Kill switch tested: `/pause` stops running work and `/resume` continues it
+- [ ] Nightly encrypted `pg_dump` cron in place, with one restore tested
+- [ ] n8n editor reachable only via SSH tunnel. Control Center reachable only via tunnel or Tailscale.
+
 ## 5. Operations
 | Task | Command |
 |---|---|

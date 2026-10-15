@@ -27,6 +27,9 @@ import { GrantsGovSource } from "./opportunities/sources/grants-gov.js";
 import { SamGovSource } from "./opportunities/sources/sam-gov.js";
 import { WebResearchSource } from "./opportunities/sources/web-research.js";
 import { OpportunityStore } from "./opportunities/store.js";
+import { SourceRegistry } from "./opportunities/registry.js";
+import { GitHubSource } from "./opportunities/sources/github.js";
+import { StayOpsTaskClient } from "./integrations/stayops/stayops.js";
 import { opportunityTools } from "./opportunities/tools.js";
 import { opportunitySections } from "./opportunities/control-section.js";
 import { normalizeEmail } from "./clients/identity.js";
@@ -136,16 +139,35 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
       });
     },
   });
+  const registry = new SourceRegistry(db);
+  await registry.seed();
+  const stayopsTasks =
+    cfg.STAYOPS_TASKS_ENABLED && cfg.STAYOPS_API_BASE_URL && cfg.STAYOPS_API_TOKEN ? new StayOpsTaskClient(cfg.STAYOPS_API_BASE_URL, cfg.STAYOPS_API_TOKEN) : null;
   const oppService = new OpportunityService({
     store,
     opps,
     notifier,
     config: cfg,
     log,
-    sources: [new GrantsGovSource(), new SamGovSource(cfg.SAM_API_KEY), web],
+    // Verifiers used by evening re-checks (discovery adapters are built per run by the scheduler).
+    sources: [new GrantsGovSource(), new SamGovSource(cfg.SAM_API_KEY), new GitHubSource({ token: cfg.GITHUB_TOKEN }), web],
+    stayops: stayopsTasks,
+  });
+  const alertMailbox = async (): Promise<GmailMailbox | null> => {
+    if (!google.configured || !(await store.getOAuthCredential("google", "business"))) return null;
+    return new GmailMailbox(await google.clientFor("business"));
+  };
+  const oppScheduler = new OpportunityScheduler({
+    service: oppService,
+    opps,
+    store,
+    registry,
+    notifier,
+    config: cfg,
+    log,
+    adapters: { config: cfg, llm: cfg.ANTHROPIC_API_KEY || opts.llm ? llm : null, alertMailbox },
   });
   opportunityTools(opps, oppService).forEach((t) => tools.register(t));
-  const oppScheduler = new OpportunityScheduler({ service: oppService, opps, store, config: cfg, log, web });
   log.info({ integrations: integrationStatus(cfg), tools: tools.names() }, "configuration");
 
   const workerId = `${hostname()}:${process.pid}`;
@@ -159,7 +181,15 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
     agents,
     notifier,
     runner,
-    sections: [...opportunitySections(opps, cfg.TIMEZONE), ...moduleSections({ store, clients, policies, cleanup, timezone: cfg.TIMEZONE })],
+    sections: [...opportunitySections(opps, cfg.TIMEZONE, registry), ...moduleSections({ store, clients, policies, cleanup, timezone: cfg.TIMEZONE })],
+    health: async () => ({
+      opportunities: {
+        enabled: cfg.OPP_ENABLED,
+        schedulerLastTick: oppScheduler.lastTickAt,
+        sourcesDisabled: (await registry.list()).filter((s) => !s.enabled).map((s) => s.id),
+        deadLetters24h: Number((await db.query<{ n: string }>("SELECT count(*) n FROM research_runs WHERE status = 'dead_letter' AND started_at > now() - interval '24 hours'")).rows[0]!.n),
+      },
+    }),
   });
   registerIMessageBridge(server, { config: cfg, store, clients, notifier });
   registerStorageBridge(server, { config: cfg, store });
@@ -200,7 +230,7 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
       google,
       notifier,
       log,
-      opportunities: { service: oppService, store: opps },
+      opportunities: { service: oppService, store: opps, registry, scheduler: oppScheduler },
       comms: { clients, policies },
     });
     await bot.api.setMyCommands([
@@ -217,7 +247,7 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
   }
 
   worker.start();
-  if (cfg.OPP_ENABLED) oppScheduler.start();
+  if (cfg.OPP_ENABLED) await oppScheduler.start();
 
   const shutdown = async () => {
     log.info("shutting down");
@@ -228,5 +258,5 @@ export async function startApp(cfg: Config, opts: { llm?: LlmClient } = {}) {
     await server.close();
     await db.end();
   };
-  return { shutdown, store, worker, runner, server, log, opps, oppService, oppScheduler, clients, policies, cleanup };
+  return { shutdown, store, worker, runner, server, log, opps, oppService, oppScheduler, registry, clients, policies, cleanup };
 }

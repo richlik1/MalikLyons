@@ -40,6 +40,34 @@ export class StayOpsClient {
   }
 }
 
+/**
+ * Proposed write endpoint for owner-approved opportunities (see STAYOPS_INTEGRATION.md):
+ *   POST {base}/api/agent/v1/tasks  { title, description, due_at, external_ref }  → 201 { id }
+ * Disabled unless STAYOPS_TASKS_ENABLED=true and the token has the tasks:write scope.
+ * external_ref makes the call idempotent on the StayOps side.
+ */
+export class StayOpsTaskClient {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly token: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async createTask(t: { title: string; description: string; dueAt: Date | null; externalRef: string }): Promise<{ id: string }> {
+    const res = await this.fetchImpl(new URL("/api/agent/v1/tasks", this.baseUrl), {
+      method: "POST",
+      headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json", "idempotency-key": t.externalRef },
+      body: JSON.stringify({ title: t.title, description: t.description, due_at: t.dueAt?.toISOString() ?? null, external_ref: t.externalRef }),
+      redirect: "error",
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) throw new Error(`StayOps task creation failed: HTTP ${res.status}`);
+    const body = (await res.json()) as { id?: string };
+    if (!body.id) throw new Error("StayOps response did not include a task id");
+    return { id: body.id };
+  }
+}
+
 export function stayOpsTools(client: StayOpsClient): ToolDefinition[] {
   const input = z.object({
     resource: z.enum(STAYOPS_RESOURCES),

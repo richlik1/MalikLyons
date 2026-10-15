@@ -10,13 +10,29 @@ const CATEGORY_LABEL: Record<string, string> = {
   development: "Development",
   personal: "Personal",
   operations: "Operations",
+  technology: "AI & technology",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
   grants_gov: "Grants.gov",
   sam_gov: "SAM.gov",
   web_research: "Web (page verified)",
+  github: "GitHub API",
+  email_alerts: "Official email alert",
 };
+
+const BAND_LABEL: Record<string, string> = { high: "HIGH PRIORITY", investigate: "Investigate", watchlist: "Watchlist", archive: "Archived" };
+
+/** Plain-language tags that must never be omitted (projected vs open; loans vs grants). */
+export function typeTags(o: { opportunity_type?: string; funding_type?: string }): string[] {
+  const tags: string[] = [];
+  if (o.opportunity_type === "forecast") tags.push("PROJECTED — not yet open");
+  if (o.funding_type === "loan") tags.push("LOAN — must be repaid");
+  if (o.funding_type === "reimbursement") tags.push("REIMBURSEMENT — you pay first");
+  if (o.funding_type === "paid_program") tags.push("PAID PROGRAM — costs money");
+  if (o.funding_type === "tax_incentive") tags.push("TAX INCENTIVE");
+  return tags;
+}
 
 /** Deterministic narrative built only from verified facts and our scoring. */
 export function buildNarrative(c: Candidate, elig: EligibilityResult, score: ScoreBreakdown, p: OwnerProfile) {
@@ -38,6 +54,10 @@ export function buildNarrative(c: Candidate, elig: EligibilityResult, score: Sco
     docs.push("SAM.gov UEI and Grants.gov account", "SF-424 application forms", "Project narrative", "Budget and budget justification");
     risks.push("Award amounts are a ceiling, not a guarantee");
     nextAction = `Read the eligibility section of the notice (${c.url}). If it fits, tap Pursue and I'll prepare an application checklist and draft.`;
+  } else if (c.category === "technology" || c.category === "operations") {
+    effort = "Evaluation ≈ 1–2 hours (read docs, try in a sandbox).";
+    investment = c.signals?.license ? `Free and open source (${c.signals.license}).` : "Free to view; license unclear — don't reuse code until confirmed.";
+    nextAction = `Review the README and license at ${c.url}; if useful, ask me to draft an evaluation of how it could help LYONS AI or StayOps (no code is installed without your approval).`;
   } else {
     effort = "Unknown — depends on the program; check the page.";
     investment = "Not stated by the source.";
@@ -93,7 +113,8 @@ export function formatOpportunity(o: OpportunityRow, timezone: string, now = new
   const lines = [
     `${o.title}`,
     `${CATEGORY_LABEL[o.category] ?? o.category} · ${SOURCE_LABEL[o.source] ?? o.source}${o.organization ? ` · ${o.organization}` : ""}`,
-    `Score ${Math.round(Number(o.score ?? 0))}/100 · Confidence ${o.confidence ?? "?"} · Verified ${o.last_verified_at ? o.last_verified_at.toISOString().slice(0, 10) : "never"}`,
+    `Score ${Math.round(Number(o.score ?? 0))}/100${o.priority_band ? ` (${BAND_LABEL[o.priority_band]})` : ""} · Confidence ${o.confidence ?? "?"} · Verified ${o.last_verified_at ? o.last_verified_at.toISOString().slice(0, 10) : "never"}`,
+    ...(typeTags(o).length ? [`⚠️ ${typeTags(o).join(" · ")}`] : []),
     "",
     `Why it fits: ${o.why_fit ?? "—"}`,
     `Upside: ${upsideText(o)}`,

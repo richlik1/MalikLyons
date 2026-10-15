@@ -27,6 +27,7 @@ export const DEFAULT_PROFILE: OwnerProfile = {
   searchTerms: {
     grants: ["small business", "workforce training", "minority business", "entrepreneur", "Michigan small business"],
     contracts: ["janitorial", "custodial", "cleaning services", "facility maintenance"],
+    technology: ["agent", "telegram", "property", "rental", "scheduling", "cleaning", "automation", "workflow", "claude"],
   },
   constraints: {
     maxUpfrontInvestmentUsd: 5000,
@@ -43,7 +44,8 @@ export const DEFAULT_PROFILE: OwnerProfile = {
     business_ideas: 0.5,
     development: 0.6,
     personal: 0.5,
-    operations: 0.7,
+    operations: 0.6,
+    technology: 0.6,
   },
 };
 

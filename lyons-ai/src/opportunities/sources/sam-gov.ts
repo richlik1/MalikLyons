@@ -85,6 +85,10 @@ export class SamGovSource implements SourceAdapter {
       sourceStatus: n.active === "Yes" ? "active" : n.active === "No" ? "inactive" : undefined,
       setAside: n.typeOfSetAside ?? undefined,
       naics: n.naicsCode,
+      fundingType: "contract",
+      // Presolicitations / sources sought / special notices are not yet open for bids.
+      opportunityType: /presolicitation|sources sought|special notice/i.test(n.type ?? "") ? "forecast" : "open_solicitation",
+      sourceRegistryId: "sam_gov",
       raw: n,
     };
   }

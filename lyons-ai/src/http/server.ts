@@ -41,6 +41,8 @@ export function buildServer(d: {
   notifier: Notifier;
   runner?: TaskRunner;
   sections?: ControlSection[];
+  /** Extra health details (module status) included in /healthz. */
+  health?: () => Promise<Record<string, unknown>>;
 }): FastifyInstance {
   const { config, store, google, notifier } = d;
   const app = Fastify({ logger: false, bodyLimit: 256 * 1024 });
@@ -62,7 +64,7 @@ export function buildServer(d: {
   app.get("/healthz", async (_req, res) => {
     try {
       await store.db.query("SELECT 1");
-      return { ok: true, paused: await store.isPaused() };
+      return { ok: true, paused: await store.isPaused(), ...(d.health ? await d.health() : {}) };
     } catch {
       return res.code(503).send({ ok: false });
     }

@@ -1,6 +1,7 @@
 import { gmail, type gmail_v1 } from "@googleapis/gmail";
 import type { OAuth2Client } from "google-auth-library";
 import type { MessageMeta } from "./classify.js";
+import { gmailFullText } from "../opportunities/sources/email-alerts.js";
 
 /**
  * The only mailbox operations cleanup can perform. There is deliberately no
@@ -55,6 +56,11 @@ export class GmailMailbox implements Mailbox {
       precedence: h("Precedence"),
       internalDate: r.data.internalDate ? Number(r.data.internalDate) : undefined,
     };
+  }
+
+  /** Full text and authentication results (used by official email-alert ingestion). */
+  async getFull(id: string): Promise<{ authResults: string; text: string }> {
+    return gmailFullText(this.api as never, id);
   }
 
   async ensureLabel(name: string): Promise<string> {

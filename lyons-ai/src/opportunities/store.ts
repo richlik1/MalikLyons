@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Db } from "../db/pool.js";
 import { normalizeTitle } from "./sources/http.js";
-import type { Candidate, Confidence, Eligibility, OpportunityCategory, OpportunityStatus, ScoreBreakdown, VerificationResult } from "./types.js";
+import { departmentForCategory, type Candidate, type Confidence, type Eligibility, type OpportunityCategory, type OpportunityStatus, type ScoreBreakdown, type VerificationResult } from "./types.js";
 
 export interface OpportunityRow {
   id: string;
@@ -33,6 +33,16 @@ export interface OpportunityRow {
   confidence: Confidence | null;
   status: OpportunityStatus;
   rejection_reason: string | null;
+  department: string | null;
+  source_registry_id: string | null;
+  opportunity_type: string;
+  funding_type: string;
+  priority_band: "high" | "investigate" | "watchlist" | "archive" | null;
+  capital_required_usd: string | null;
+  estimated_cost: string | null;
+  assigned_owner: string;
+  retrieved_at: Date | null;
+  verification_status: "verified" | "unverified" | "failed";
   verification: (Omit<VerificationResult, "updates" | "checkedAt"> & { checkedAt: string }) | null;
   first_seen_at: Date;
   last_seen_at: Date;
@@ -60,6 +70,7 @@ export interface NewOpportunity {
   nextAction: string;
   whyFit: string;
   score: ScoreBreakdown;
+  scoreExplanation?: string;
   confidence: Confidence;
   verification: VerificationResult;
 }
@@ -86,8 +97,10 @@ export class OpportunityStore {
       `INSERT INTO opportunities (source, source_id, fingerprint, category, title, organization, url, summary, location,
          amount_min, amount_max, posted_at, deadline_at, deadline_confirmed, eligibility, eligibility_notes, prerequisites,
          required_documents, required_investment, effort, risks, next_action, why_fit, score, score_breakdown, confidence,
-         status, rejection_reason, verification, raw, last_verified_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+         status, rejection_reason, verification, raw, last_verified_at,
+         department, source_registry_id, opportunity_type, funding_type, priority_band, capital_required_usd, estimated_cost, retrieved_at, verification_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,
+               $32,$33,$34,$35,$36,$37,$38,$39,$40)
        ON CONFLICT DO NOTHING
        RETURNING *`,
       [
@@ -122,11 +135,28 @@ export class OpportunityStore {
         JSON.stringify(verification),
         JSON.stringify(c.raw ?? null),
         o.verification.checkedAt,
+        departmentForCategory(c.category),
+        c.sourceRegistryId ?? c.source,
+        c.opportunityType ?? "open_solicitation",
+        c.fundingType ?? "unknown",
+        o.rejectionReason ? null : o.score.band,
+        c.capitalRequiredUsd ?? null,
+        o.requiredInvestment,
+        o.verification.checkedAt,
+        o.verification.ok ? "verified" : "failed",
       ],
     );
     const row = r.rows[0];
     if (!row) throw new Error("duplicate opportunity");
     await this.event(row.id, "system", "discovered", { source: c.source, sourceId: c.sourceId });
+    await this.history(row.id, "discovered", null, "discovered", "system", `${c.source}${c.sourceRegistryId ? ` (${c.sourceRegistryId})` : ""}`);
+    await this.addEvidence(row.id, o.verification, c.postedAt ?? null);
+    await this.history(row.id, o.verification.ok ? "verified" : "verification_failed", "discovered", null, "system", o.verification.method);
+    if (!o.rejectionReason) {
+      await this.addScore(row.id, o.score, o.scoreExplanation ?? "");
+      await this.history(row.id, "scored", null, null, "system", `${o.score.total}/100 (${o.score.band})`);
+    }
+    await this.history(row.id, "saved", "discovered", o.status, "system", o.rejectionReason ?? null);
     await this.event(row.id, "system", o.status === "rejected" ? "rejected" : "verified", {
       method: o.verification.method,
       checks: o.verification.checks,
@@ -160,8 +190,84 @@ export class OpportunityStore {
   }
 
   async setStatus(id: string, status: OpportunityStatus, actor: string, details: Record<string, unknown> = {}): Promise<void> {
+    const prev = await this.db.query<{ status: string }>("SELECT status FROM opportunities WHERE id = $1", [id]);
     await this.db.query("UPDATE opportunities SET status = $2, updated_at = now() WHERE id = $1", [id, status]);
     await this.event(id, actor, `status.${status}`, details);
+    await this.history(id, "status", prev.rows[0]?.status ?? null, status, actor, typeof details.reason === "string" ? details.reason : null);
+  }
+
+  // ---- blueprint tables: evidence, scores, stage history, actions, feedback, costs ----
+  async history(id: string, stage: string, from: string | null, to: string | null, actor: string, reason: string | null): Promise<void> {
+    await this.db.query(
+      "INSERT INTO opportunity_status_history (opportunity_id, stage, from_status, to_status, actor, reason) VALUES ($1, $2, $3, $4, $5, $6)",
+      [id, stage, from, to, actor, reason],
+    );
+  }
+
+  async stages(id: string) {
+    const r = await this.db.query<{ at: Date; stage: string; from_status: string | null; to_status: string | null; actor: string; reason: string | null }>(
+      "SELECT at, stage, from_status, to_status, actor, reason FROM opportunity_status_history WHERE opportunity_id = $1 ORDER BY id",
+      [id],
+    );
+    return r.rows;
+  }
+
+  async addEvidence(id: string, v: VerificationResult, publishedAt: Date | null): Promise<void> {
+    await this.db.query(
+      "INSERT INTO opportunity_evidence (opportunity_id, url, method, published_at, retrieved_at, passed, checks) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [id, v.authoritativeUrl, v.method, publishedAt, v.checkedAt, v.ok, JSON.stringify(v.checks)],
+    );
+  }
+
+  async addScore(id: string, s: ScoreBreakdown, explanation: string, modelVersion = "blueprint-v1"): Promise<void> {
+    await this.db.query(
+      "INSERT INTO opportunity_scores (opportunity_id, model_version, components, total, band, explanation) VALUES ($1, $2, $3, $4, $5, $6)",
+      [id, modelVersion, JSON.stringify(s), s.total, s.band, explanation],
+    );
+  }
+
+  async addAction(a: { opportunityId: string; kind: "checklist" | "outreach_draft" | "internal_task" | "stayops_task" | "reminder"; title: string; body: string; taskId?: string | null; status?: string; externalId?: string | null }): Promise<string | null> {
+    const r = await this.db.query<{ id: string }>(
+      `INSERT INTO opportunity_actions (opportunity_id, kind, title, body, task_id, status, external_id) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (opportunity_id, kind, title) DO NOTHING RETURNING id`,
+      [a.opportunityId, a.kind, a.title, a.body, a.taskId ?? null, a.status ?? "prepared", a.externalId ?? null],
+    );
+    if (r.rows[0]) await this.history(a.opportunityId, "action_prepared", null, null, "system", `${a.kind}: ${a.title}`);
+    return r.rows[0]?.id ?? null;
+  }
+
+  async setActionStatus(id: string, status: string, externalId?: string | null): Promise<void> {
+    await this.db.query("UPDATE opportunity_actions SET status = $2, external_id = coalesce($3, external_id), updated_at = now() WHERE id = $1", [id, status, externalId ?? null]);
+  }
+
+  async actions(id: string) {
+    const r = await this.db.query<{ id: string; kind: string; status: string; title: string; body: string; created_at: Date; task_id: string | null; external_id: string | null }>(
+      "SELECT id, kind, status, title, body, created_at, task_id, external_id FROM opportunity_actions WHERE opportunity_id = $1 ORDER BY created_at",
+      [id],
+    );
+    return r.rows;
+  }
+
+  async recordFeedback(id: string, actor: string, decision: "accepted" | "rejected" | "completed", note?: string): Promise<void> {
+    await this.db.query("INSERT INTO user_feedback (opportunity_id, actor, decision, note) VALUES ($1, $2, $3, $4)", [id, actor, decision, note ?? null]);
+  }
+
+  async recordCost(c: { runId: string | null; sourceId: string | null; department: string | null; kind: "llm" | "api_call"; model?: string; inputTokens?: number; outputTokens?: number; requests?: number; costUsd?: number }): Promise<void> {
+    await this.db.query(
+      `INSERT INTO research_costs (run_id, source_id, department, kind, model, input_tokens, output_tokens, requests, cost_usd)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [c.runId, c.sourceId, c.department, c.kind, c.model ?? null, c.inputTokens ?? 0, c.outputTokens ?? 0, c.requests ?? 0, c.costUsd ?? 0],
+    );
+  }
+
+  async costSummary(days: number, timezone: string) {
+    const r = await this.db.query<{ source_id: string | null; llm_usd: string; requests: string }>(
+      `SELECT source_id, coalesce(sum(cost_usd), 0) llm_usd, coalesce(sum(requests), 0) requests FROM research_costs
+       WHERE at >= (date_trunc('day', now() AT TIME ZONE $2) AT TIME ZONE $2) - (($1::int - 1) || ' days')::interval
+       GROUP BY source_id ORDER BY 2 DESC`,
+      [days, timezone],
+    );
+    return r.rows.map((x) => ({ sourceId: x.source_id, llmUsd: Number(x.llm_usd), requests: Number(x.requests) }));
   }
 
   async markNotified(ids: string[]): Promise<void> {
@@ -214,9 +320,9 @@ export class OpportunityStore {
   /** Owner decisions per category+source, for bounded learning. */
   async feedbackStats(): Promise<Map<string, { accepted: number; rejected: number }>> {
     const r = await this.db.query<{ category: string; source: string; decision: string; n: string }>(
-      `SELECT o.category, o.source, e.details->>'decision' AS decision, count(*) n
-       FROM opportunity_events e JOIN opportunities o ON o.id = e.opportunity_id
-       WHERE e.event = 'feedback' GROUP BY 1, 2, 3`,
+      `SELECT o.category, o.source, f.decision, count(*) n
+       FROM user_feedback f JOIN opportunities o ON o.id = f.opportunity_id
+       GROUP BY 1, 2, 3`,
     );
     const m = new Map<string, { accepted: number; rejected: number }>();
     for (const row of r.rows) {
@@ -266,12 +372,12 @@ export class OpportunityStore {
   }
 
   async logNotification(module: string, kind: string, ids: string[], text: string): Promise<void> {
-    await this.db.query("INSERT INTO notification_log (module, kind, opportunity_ids, text) VALUES ($1, $2, $3, $4)", [module, kind, ids, text]);
+    await this.db.query("INSERT INTO notification_history (module, kind, opportunity_ids, text) VALUES ($1, $2, $3, $4)", [module, kind, ids, text]);
   }
 
   async notificationsToday(module: string, kind: string, timezone: string): Promise<number> {
     const r = await this.db.query<{ n: string }>(
-      `SELECT count(*) n FROM notification_log WHERE module = $1 AND kind = $2
+      `SELECT count(*) n FROM notification_history WHERE module = $1 AND kind = $2
          AND at >= (date_trunc('day', now() AT TIME ZONE $3) AT TIME ZONE $3)`,
       [module, kind, timezone],
     );
@@ -288,15 +394,15 @@ export class OpportunityStore {
   }
 
   /** Timestamps come from the scheduler's clock so backoff math uses one time source. */
-  async startRun(job: string, slot: string, attempt: number, at: Date = new Date()): Promise<string> {
+  async startRun(job: string, slot: string, attempt: number, at: Date = new Date(), extra: { sourceId?: string | null; cycle?: string } = {}): Promise<string> {
     const r = await this.db.query<{ id: string }>(
-      "INSERT INTO research_runs (job, slot, attempt, status, started_at) VALUES ($1, $2, $3, 'running', $4) RETURNING id",
-      [job, slot, attempt, at],
+      "INSERT INTO research_runs (job, slot, attempt, status, started_at, source_id, cycle) VALUES ($1, $2, $3, 'running', $4, $5, $6) RETURNING id",
+      [job, slot, attempt, at, extra.sourceId ?? null, extra.cycle ?? null],
     );
     return r.rows[0]!.id;
   }
 
-  async finishRun(id: string, status: "succeeded" | "failed" | "skipped", stats: Record<string, unknown>, error?: string, at: Date = new Date()): Promise<void> {
+  async finishRun(id: string, status: "succeeded" | "failed" | "skipped" | "dead_letter", stats: Record<string, unknown>, error?: string, at: Date = new Date()): Promise<void> {
     await this.db.query("UPDATE research_runs SET status = $2, stats = $3, error = $4, finished_at = $5 WHERE id = $1", [
       id,
       status,
@@ -307,7 +413,7 @@ export class OpportunityStore {
   }
 
   async recentRuns(limit = 20) {
-    const r = await this.db.query("SELECT job, slot, attempt, status, stats, error, started_at, finished_at FROM research_runs ORDER BY started_at DESC LIMIT $1", [limit]);
+    const r = await this.db.query("SELECT id, job, slot, cycle, source_id, attempt, status, stats, error, api_calls, checkpoint, started_at, finished_at FROM research_runs ORDER BY started_at DESC, id DESC LIMIT $1", [limit]);
     return r.rows;
   }
 

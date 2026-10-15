@@ -1,70 +1,162 @@
-# Opportunity Intelligence
+# Opportunity Intelligence Department
 
-A background service that looks for opportunities (contracts, grants, programs, real estate, business ideas, development, personal), verifies each one against an authoritative source, scores it against your profile, and tells you only about the ones worth your time.
+A durable background department that researches opportunities twice a day, at **7:00 AM and 7:00 PM America/Detroit**. It covers contracts, grants, ventures, real estate, personal growth and technology. Each item is verified against an authoritative source and scored on a 100-point model. Only the ones worth your time reach Telegram. It never submits, applies, pays, signs or contacts anyone without your approval.
 
-## How it works
+## Pipeline
 
 ```
- Discover ──▶ Dedupe ──▶ Verify ──▶ Eligibility ──▶ Hard filters ──▶ Score ──▶ Store ──▶ Notify (rarely)
- sources      source id   re-fetch   deterministic   expired, too     0–100     Postgres   alerts ≤ 2/day
-              + title     from the   rules, never    soon, failed     with a              daily: new items only
-              fingerprint authority  "assumes yes"   verification,    breakdown           weekly: top 5, no repeats
-                                                     ineligible
+DISCOVERED ─▶ VERIFIED ─▶ SCORED ─▶ SAVED ─▶ ACTION PREPARED ─▶ REPORTED
+ registry      authority   7 factors  Postgres  checklist +       morning brief /
+ source        re-fetch    + bands    evidence  internal task     evening review /
+                                      history                     rare alert
 ```
 
-| Source | Covers | Verification | Needs |
-|---|---|---|---|
-| **Grants.gov** (`api.grants.gov`) | Federal grants open to small businesses / "others" / unrestricted | Re-reads the record via `fetchOpportunity`: title, still open, award floor/ceiling, applicant types, cost sharing | Nothing (public API) |
-| **SAM.gov** (`api.sam.gov`) | Federal contract notices for NAICS 561720 (janitorial), 561790, 561210 with place of performance in MI | Re-reads the notice by id: title, active, response deadline | Free API key (`SAM_API_KEY`) from SAM.gov → Account Details |
-| **Web research** (Claude + web search) | Local RFPs (city, county, schools, housing, hospitals), Michigan/Detroit programs, real estate, business ideas, mentorship/training, community and parenting resources, operational changes | Downloads the primary URL itself (SSRF-safe, https only), checks the title is on the page, confirms the deadline and amount appear on the page (otherwise they're labeled estimates or dropped), and rejects pages with scam signals | `ANTHROPIC_API_KEY`; capped by `OPP_DAILY_RESEARCH_BUDGET_USD` (default $1.50/day) |
+Every stage transition is written to `opportunity_status_history`. Rejections are kept with their reason, and you never see them.
 
-### Discipline rules (enforced in code)
-- **No unverified items reach you.** If verification fails, the item is stored as `rejected` with the reason, and you never see it.
-- **Facts vs estimates:** amounts and deadlines are "confirmed" only when they came from the authoritative record or appeared verbatim on the official page. Anything else is labeled **ESTIMATE** or **UNCONFIRMED**, or dropped.
-- **Eligibility is never assumed.** Unknowns, like whether you're registered in SAM.gov, make the result "unclear" and generate a question; `/profile` lists them.
-- **Hard filters:** expired items, deadlines closer than `minDaysToDeadline` (7 days), ineligible applicant types, closed or inactive notices, and scam patterns.
-- **Notification budget:**
-  - At most `OPP_MAX_ALERTS_PER_DAY` (2) immediate alerts, and only for scores ≥ 80 closing within 21 days.
-  - The daily briefing shows at most 5 items you haven't seen, and sends **nothing** when nothing is new.
-  - The weekly top five never repeats an item unless you're pursuing it.
-- **Learning:** your Pursue / Not for me / outcome feedback shifts scores for the same category and source by at most ±10 points, and only after 3 or more decisions.
+Dedupe happens before verification, on the source id plus a title+organization fingerprint. A duplicate costs no verification calls and is never reported twice.
 
-### Scoring (0–100)
+## Effort allocation (not spending)
 
-| Factor | Points |
+| Department | Share of research effort |
 |---|---|
-| Value | up to 30 (log scale on the confirmed amount; 10 if not stated) |
-| Fit | up to 25 (category weight, keyword and NAICS match, Metro Detroit location) |
-| Feasibility | up to 20 (eligibility; −5 if you're already pursuing 5 or more) |
-| Timing | up to 15 (7–45 days ideal) |
-| Cost/effort | up to 10 (cost sharing lowers it) |
-| Learned | ±10 |
+| Cleaning contracts & clients | 30% |
+| Grants & financing | 20% |
+| Ventures & investments | 15% |
+| Real estate | 15% |
+| Personal growth | 10% |
+| AI & technology | 10% |
 
-Qualified = 55 or more. Every card shows the breakdown in its notes.
+The allocation is applied to the per-cycle web-research units (`OPP_WEB_UNITS_PER_CYCLE`, default 3). Allocation is deficit-based: the departments furthest below their share over the last 7 days go first. The plan is persisted per slot so a restart doesn't re-pick.
 
-### What every recommendation contains
-Name and source · why it fits · upside (confirmed or estimate) · investment · effort · deadline (confirmed or not) · eligibility with notes · prerequisites · risks · documents (typical, to be confirmed) · the specific next action · source URL · verification checks · confidence · last verification date. It comes with **Pursue / Prepare / Not for me** buttons. **Prepare** creates a task that builds an application checklist and draft. Nothing is ever submitted or sent.
+To change the shares, set `opportunity.allocation` in settings. They are normalised to 100%.
 
-## Schedule (owner's timezone)
+## Source registry (`research_sources`, editable)
 
-| Job | When | Notes |
+| Id | Source | How it's read | Notes |
+|---|---|---|---|
+| `grants_gov` | Grants.gov | Official API (`search2` + `fetchOpportunity`) | No key. Forecasted items are labelled *projected*. |
+| `sam_gov` | SAM.gov Contract Opportunities | Official API v2 | `SAM_API_KEY` (free). Presolicitation and sources-sought notices are labelled *forecast*. |
+| `github` | GitHub repositories | Official REST API | `GITHUB_TOKEN` optional: 60 requests/hour without one, 5,000/hour with one. |
+| `mi_sigma_vss` | Michigan SIGMA VSS | **Official alert emails** in your Gmail, accepted only from the official sender domain with DMARC/SPF pass | SIGMA requires login. LYONS AI never logs in to it. |
+| `detroit_bonfire_alerts` | City of Detroit bids (Bonfire) | **Official alert emails** | Requires a Bonfire supplier account with commodity codes. |
+| `mi_vendor_dashboard` | Michigan Vendor Opportunity Dashboard | Registry-scoped web research | A forecast tool, so items are always *projected*, never *open*. |
+| `detroit_ocp` | City of Detroit OCP | Web research (public pages) | |
+| `sba`, `medc` | SBA, MEDC | Web research | Loans are labelled loans, never grants. |
+| `mi_sbdc` | Michigan SBDC | Web research | |
+| `detroit_land_bank`, `detroit_property_portal` | Detroit Land Bank, Property Portal | Web research (public listings only) | |
+| `property_managers` | Metro Detroit PMs / STR operators | Web research (lead research only) | Outreach always needs your approval. |
+| `ventures`, `eventbrite`, `personal_resources`, `ai_docs` | Ideas, events, family/community resources, official AI docs | Web research | |
+
+Web research uses Claude with web search, restricted to each entry's `domains` list (`allowed_domains`). The verifier then downloads the primary page itself (https only, SSRF-safe, redirects re-checked hop by hop). It confirms the title, and confirms the deadline and amount appear on the page. Anything not found on the page is labelled an estimate or dropped.
+
+Telegram commands:
+- `/sources` lists health, failures and last success.
+- `/source_enable <id>` and `/source_disable <id>` turn a source on or off.
+- `/opp_runs` shows recent runs, and `/opp_costs` shows API calls and LLM dollars per source.
+- `/opp_retry <job>` retries a dead-lettered job.
+
+**Access rules (enforced):** official APIs, RSS and email come first. There is no login to access-controlled portals, no CAPTCHA or MFA bypass, and no scraping against terms. Every request goes through a counting fetch with per-run and per-day request caps (`max_requests_per_run/day`). If a source is unavailable, the brief says so. **Nothing is ever fabricated.**
+
+## Scoring (100 points, `opportunity.scoring` setting)
+
+| Factor | Max |
+|---|---|
+| Strategic fit | 20 |
+| Financial upside (conservative; estimates discounted) | 20 |
+| Execution probability (eligibility, registrations, competition, load) | 20 |
+| Capital affordability (vs `maxUpfrontInvestmentUsd`) | 15 |
+| Time & effort (vs `weeklyHoursAvailable`) | 10 |
+| Timing / urgency | 10 |
+| Evidence quality (official API > verified official page > alert email) | 5 |
+
+**Bands:**
+
+| Score | Band | Status |
 |---|---|---|
-| Discovery (Grants.gov, SAM.gov) | every 12 h | Up to 40 new verifications per run |
-| Web research | every 12 h, rotating 2 categories | Stops at the daily research budget or the global daily limit |
-| Re-check | daily from 06:00 | Re-verifies open items; closes dead ones; warns you only about ones you're pursuing |
-| Daily briefing | 07:00 | Skipped when nothing is new |
-| Weekly top 5 | Monday 08:00 | |
+| ≥ 85 | High priority | `qualified`, alert-eligible |
+| ≥ 70 | Investigate | `qualified`, appears in briefs |
+| ≥ 50 | Watchlist | `verified`, kept but not pushed |
+| < 50 | Archive | `archived` |
 
-Each job runs once per slot. Failures retry with backoff (5, 10 min) up to 3 attempts, and every run is logged in `research_runs` and shown in the Control Center. Nothing runs while the kill switch or the `opportunities` module pause is on.
+**Hard disqualifications** (status `rejected`, with a reason):
+- failed verification
+- an expired deadline, or fewer than `minDaysToDeadline` days left
+- known ineligibility
+- capital above your limit
+- a closed or cancelled status at the source
+- scam signals
 
-## Telegram
-`/opps` pipeline · `/opp <id>` full card with buttons · `/opp_done <id> <result>` record the outcome · `/profile` shows what it knows and what it still needs. You can also just say "I'm registered in SAM.gov now" or "I have 6 employees", and the agent updates the profile.
+**Learning:** your Pursue, Not for me and outcome feedback (`user_feedback`) can shift a factor by at most ±20%, and only after 3 or more decisions in the same category or source.
 
-## Live end-to-end demo
+**Honesty rules:**
+- Grants are distinguished from loans, reimbursements and paid programs (`funding_type`).
+- Projected procurements are distinguished from open solicitations (`opportunity_type`).
+- Projected returns are always labelled estimates and are never guaranteed.
+
+## Twice-daily cycles
+
+| Cycle | Time (America/Detroit) | Jobs |
+|---|---|---|
+| Morning | `OPP_MORNING_HOUR` = 7 | Discovery for all enabled API and email sources, then this slot's web-research units, then the **🌅 Morning Intelligence Brief** |
+| Evening | `OPP_EVENING_HOUR` = 19 | Re-verification of open items, more web research, then the **🌙 Evening Intelligence Review** |
+| Weekly (optional) | `OPP_WEEKLY_ENABLED`, Monday 08:00 | Top 5, with no repeats unless you're pursuing the item |
+
+**Morning brief:**
+- the top 3, each with why it matters, a link, score and band, the deadline, cost and upside, and the next action
+- **one recommended action** for the day
+- **changes since the last brief** (new, deadline changes, closed)
+- source problems
+
+**Evening review:**
+- today's counts (discovered, verified, rejected, archived, qualified)
+- what was prepared
+- changes
+- the highest-value step for tomorrow
+
+**Exceptional alerts** go out only when one of these holds, deduplicated per (reason, item, information) in `notification_history.dedupe_key`, and capped by `OPP_MAX_ALERTS_PER_DAY`:
+- a high-band, non-forecast item closing within 14 days
+- a deadline change on an item you're pursuing
+- an item you're pursuing that no longer verifies
+- an item you're pursuing that closes within 3 days
+
+## Autonomy
+
+| Allowed alone | Requires your approval (policy engine) |
+|---|---|
+| Research, verify, score, update records, draft, build checklists (`opportunity_actions`), create internal tasks | Sending any external message, submitting applications, sharing confidential data, paying, committing, signing, deleting important records |
+
+When you tap **Pursue** with `STAYOPS_TASKS_ENABLED=true`, a StayOps task is created through the scoped task API. That is an internal task, never a client message. It is idempotent via `externalRef = lyons-opportunity:<id>`.
+
+## Reliability
+
+- **Durable slots.** Each `(job, slot)` succeeds at most once, with slot = `YYYY-MM-DD#morning|evening`. If the server was down at 7 AM, the job runs on start. A morning missed entirely still runs its discovery, but the stale brief is skipped and the evening review covers it.
+- **No duplicate concurrent runs.** A Postgres advisory lock is held per `(job, slot)`, so multiple app instances are safe.
+- **Restart recovery.** Runs left `running` by a crashed process are marked failed and retried. This only happens when no live worker holds the lock.
+- **Retries and dead letters.** Retries back off at 5 and then 10 minutes. After 3 attempts the run goes to `dead_letter` and you get one Telegram notice. Use `/opp_retry` to retry it.
+- **Circuit breaker.** A source is disabled after 6 consecutive failed runs, and the brief says so. A missing setup, such as no Google connection or no key, is a *skip*, not a failure.
+- **Checkpointing.** `research_runs.checkpoint` records progress. Inserts are idempotent (unique source/source_id and actions).
+- **Timeouts.** Each job is aborted at the workflow timeout. The kill switch and the `opportunities` module pause stop everything.
+- **Costs.** `research_costs` stores API calls and LLM tokens and dollars per run and source. Web research stops at `OPP_DAILY_RESEARCH_BUDGET_USD` and the global daily spend limit.
+- **Health.** `/healthz` reports the scheduler's last tick, disabled sources and dead letters in the last 24 hours.
+
+## Demo
+
 ```bash
-DATABASE_URL=... MASTER_ENCRYPTION_KEY=... [SAM_API_KEY=...] npm run opp:demo
-# in Docker: docker compose exec lyons-ai node dist/scripts/opportunity-demo.js
+DATABASE_URL=... MASTER_ENCRYPTION_KEY=... [SAM_API_KEY=...] [GITHUB_TOKEN=...] npm run opp:demo
+DEMO_AT=2026-10-15T11:05:00Z npm run opp:demo   # pretend it's 07:05 Detroit
+# Docker: docker compose exec lyons-ai node dist/scripts/opportunity-demo.js
 ```
-It discovers from Grants.gov (and SAM.gov if a key is set), verifies each item against the authoritative API, scores and stores it, prints the best card with its full verification record, and sends the daily briefing (to Telegram if configured). It uses only real API responses. If a source is unreachable it says so and doesn't fabricate output.
 
-> **Status:** the demo has **not** completed a live run yet. The build environment's network policy blocks `api.grants.gov` and `api.sam.gov`. The parsers follow the published API docs and are tested with fixtures in that shape. Run the demo once on your VM to confirm the live field names (see `docs/STATUS.md`).
+The demo runs one real scheduler tick against the real network. It prints:
+- the runs and source health
+- the best stored opportunity, with its stage history and prepared actions
+- the costs
+
+Briefs go to Telegram when it is configured.
+
+**Results so far** (see `docs/demo/`):
+- `opportunity-test-evidence.txt`: the full stage chain on Postgres, duplicate suppression, restart recovery, advisory-lock exclusion, retry → dead letter → circuit breaker, the API limit, kill switch and pause, approval enforcement, and cost tracking. Every item passes, with the real Grants.gov adapter parsing fixture HTTP in the documented shape.
+- `opportunity-live-run-sandbox.log`: a real-network run from the build sandbox.
+  - Grants.gov was blocked by the sandbox egress policy (`network error`), and GitHub returned 401 from the sandbox proxy. Both were retried twice and then dead-lettered, and the morning brief honestly listed them under *Source issues*.
+  - SAM.gov was skipped (no key) and the email-alert sources were skipped (Google not connected).
+  - **No real opportunity has been discovered yet.** That needs the VM, or allowed domains in this environment.

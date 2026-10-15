@@ -33,6 +33,22 @@ Last updated: 2026-10-15 (v0.2: communications, opportunities, control center)
 | Storage | Python scanner on real files (true duplicates only, Photos-library skip, re-hash before moving); server report/approval/queue/ack |
 | Compiled app | Boots with all five migrations on a fresh database; Control Center renders all 12 sections without errors |
 
+### v0.3 Opportunity Intelligence Department, verified in the build environment (2026-10-15)
+- Migration `006` applies on Postgres 16. It adds research_sources, research_runs (+ checkpoint, api_calls, dead_letter), opportunities (+ blueprint fields), opportunity_evidence, opportunity_scores, opportunity_status_history, opportunity_actions, notification_history (dedupe keys), user_feedback and research_costs.
+- 16 opportunity integration tests pass (`docs/demo/opportunity-test-evidence.txt`). They cover:
+  - the full DISCOVERED → VERIFIED → SCORED → SAVED → ACTION PREPARED → REPORTED chain
+  - bands and statuses, duplicate suppression, and hard exclusions
+  - morning and evening briefs, feedback learning, and the StayOps task sink
+  - recheck alerts that never repeat
+  - 7 AM / 7 PM cycles that run once each, the advisory lock against concurrent runs, and restart recovery
+  - retry → dead letter → circuit breaker, the daily API cap, kill switch and pause, and per-run cost rows
+  - skipping email-alert sources while Google is not connected
+- Real-network sandbox run (`docs/demo/opportunity-live-run-sandbox.log`):
+  - Grants.gov was blocked by the sandbox egress policy, and GitHub returned 401 from the sandbox proxy. Both were retried with backoff, dead-lettered, and reported in the morning brief's *Source issues*.
+  - SAM.gov and the email-alert sources were correctly *skipped* (no key, no Google connection).
+  - **No real opportunity was produced. None was fabricated.**
+- Full suite: 175 TypeScript tests (5 skipped, which need a real browser or optional services) and 13 Python tests pass. Typecheck and build pass.
+
 ## NOT yet verified (need your credentials or deployment)
 
 | Area | Status | What's needed |
@@ -43,7 +59,9 @@ Last updated: 2026-10-15 (v0.2: communications, opportunities, control center)
 | StayOps | ❌ No API available | Contract is a proposal (`STAYOPS_INTEGRATION.md`). |
 | Docker image build | ⚠️ Partially verified | The build stage (`npm ci` + compile) succeeded. The runtime stage's `playwright-core install --with-deps` could not finish here because this sandbox's proxy blocks the Debian package mirrors. Expected to work on a normal VM; verify with `docker compose build`. |
 | Full Compose stack end-to-end (TLS certificate issuance, all services together) | ❌ Not run end-to-end | A real VM + DNS |
-| **Opportunity live demo** (Grants.gov / SAM.gov) | ❌ Not run live | The build sandbox's network policy blocks `api.grants.gov` and `api.sam.gov`. Run `npm run opp:demo` on the VM (add `SAM_API_KEY` for contracts). Confirm the live response field names match the parsers. |
+| **Opportunity live demo** (a real opportunity end to end) | ❌ Not run live | The sandbox blocks `api.grants.gov`, `api.sam.gov`, `michigan.gov`, `detroitmi.gov`, `sba.gov` and others, and GitHub search is blocked by the sandbox proxy. Run `npm run opp:demo` on the VM (`DEPLOYMENT.md` §4b), or add these hosts to this environment's allowed domains. Confirm the live response field names match the parsers. |
+| SIGMA VSS / Detroit Bonfire alert emails | ❌ Not connected | Supplier registrations plus `/connect_google business` |
+| Production 7 AM / 7 PM schedules | ❌ Not activated | A deployed VM (`DEPLOYMENT.md` §4b) |
 | Opportunity web research | ❌ Not run live | `ANTHROPIC_API_KEY` |
 | Gmail cleanup / Contacts sync | ❌ Not run on real mailboxes | Reconnect Google with the new `gmail.modify` and `contacts.readonly` scopes, then run `/cleanup` (scan only) first |
 | iMessage bridge on a real Mac | ❌ Not run on macOS | A Mac with Full Disk Access and Automation permission; start with `LYONS_BRIDGE_DRY_RUN=1` |
@@ -66,6 +84,8 @@ Last updated: 2026-10-15 (v0.2: communications, opportunities, control center)
 | | Scheduled morning briefing from n8n | | |
 | | Browser snapshot of an allowlisted site | | |
 | | `npm run opp:demo` produces a verified Grants.gov opportunity | | |
+| | First 07:00 Morning Intelligence Brief received | | |
+| | First 19:00 Evening Intelligence Review received | | |
 | | Control Center sign-in, emergency stop, module pause | | |
 | | `/cleanup` scan report on the real inbox (no changes) | | |
 | | Apply + revert a small cleanup plan | | |

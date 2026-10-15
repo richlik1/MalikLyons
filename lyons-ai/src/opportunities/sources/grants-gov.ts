@@ -86,6 +86,10 @@ export class GrantsGovSource implements SourceAdapter {
           deadlineAt: deadline ?? null,
           deadlineConfirmed: Boolean(deadline),
           sourceStatus: hit.oppStatus,
+          fundingType: "grant",
+          // Forecasted grants are announced but not yet accepting applications.
+          opportunityType: (hit.oppStatus ?? "").toLowerCase() === "forecasted" ? "forecast" : "open_solicitation",
+          sourceRegistryId: "grants_gov",
           raw: { search: hit, matchedKeyword: keyword },
         });
       }

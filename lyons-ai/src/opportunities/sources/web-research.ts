@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { LlmClient, LlmMessage, LlmResponse } from "../../core/llm.js";
 import { scamSignals } from "../assess.js";
 import { OPPORTUNITY_CATEGORIES, type Candidate, type OpportunityCategory, type OwnerProfile, type SourceAdapter, type VerificationCheck, type VerificationResult } from "../types.js";
-import { normalizeTitle, parseDate, stripHtml, type FetchLike } from "./http.js";
+import { inferFundingType, normalizeTitle, parseDate, stripHtml, type FetchLike } from "./http.js";
 
 /**
  * Web research for categories without an official API (local contracts, real
@@ -51,6 +51,8 @@ const RESEARCH_BRIEFS: Record<OpportunityCategory, string> = {
     "Upcoming family-friendly community resources, parenting programs, and practical life-improvement programs in Metro Detroit with official pages and dates.",
   operations:
     "Recent tools, price changes, regulations, or programs affecting small cleaning companies and short-term-rental operators in Michigan (e.g. licensing, STR ordinances in Detroit-area cities, cost-saving programs).",
+  technology:
+    "New, well-documented AI agent frameworks, coding tools, property-technology and workflow-automation tools (official docs or repositories) that could cut costs or add capabilities to a Telegram-controlled operations agent and a property operations platform.",
 };
 
 export function profileSummary(p: OwnerProfile): string {
@@ -143,6 +145,8 @@ export class WebResearchSource implements SourceAdapter {
       onUsage?: (r: LlmResponse) => Promise<void>;
       categoriesPerRun?: OpportunityCategory[];
       maxSearches?: number;
+      /** Registry entry: restricts search to its official domains and uses its brief. */
+      entry?: { id: string; category: OpportunityCategory; brief?: string; domains: string[]; opportunityType: Candidate["opportunityType"] };
     } = {},
   ) {}
 
@@ -151,18 +155,27 @@ export class WebResearchSource implements SourceAdapter {
   }
 
   withCategories(categories: OpportunityCategory[]): WebResearchSource {
-    return new WebResearchSource(this.llm, { ...this.opts, categoriesPerRun: categories });
+    return new WebResearchSource(this.llm, { ...this.opts, categoriesPerRun: categories, entry: undefined });
+  }
+
+  forEntry(entry: NonNullable<WebResearchSource["opts"]["entry"]>): WebResearchSource {
+    return new WebResearchSource(this.llm, { ...this.opts, entry });
   }
 
   async discover(profile: OwnerProfile, signal: AbortSignal): Promise<Candidate[]> {
     if (!this.llm) return [];
+    const e = this.opts.entry;
+    if (e) {
+      const found = await this.research(e.category, profile, signal, e.brief, e.domains);
+      return found.map((c) => ({ ...c, sourceRegistryId: e.id, opportunityType: e.opportunityType ?? c.opportunityType }));
+    }
     const categories = this.opts.categoriesPerRun ?? ["contracts"];
     const out: Candidate[] = [];
     for (const category of categories) out.push(...(await this.research(category, profile, signal)));
     return out;
   }
 
-  private async research(category: OpportunityCategory, profile: OwnerProfile, signal: AbortSignal): Promise<Candidate[]> {
+  private async research(category: OpportunityCategory, profile: OwnerProfile, signal: AbortSignal, brief?: string, domains: string[] = []): Promise<Candidate[]> {
     const today = new Date().toISOString().slice(0, 10);
     const system = `You are a disciplined opportunity researcher for a small business owner. Today is ${today}.
 Find at most 5 CURRENT, concrete opportunities, each with an official primary-source page. Quality over quantity: return fewer or zero if you can't find solid ones.
@@ -176,7 +189,7 @@ When done, call report_opportunities exactly once.`;
     const messages: LlmMessage[] = [
       {
         role: "user",
-        content: `Owner profile:\n${profileSummary(profile)}\n\nResearch brief (${category}):\n${RESEARCH_BRIEFS[category]}`,
+        content: `Owner profile:\n${profileSummary(profile)}\n\nResearch brief (${category}):\n${brief ?? RESEARCH_BRIEFS[category]}${domains.length ? `\n\nOnly use these official sources: ${domains.join(", ")}.` : ""}\nLabel each finding's funding/opportunity nature in the summary (grant vs loan vs reimbursement vs paid program; open vs projected).`,
       },
     ];
     const tools = [
@@ -185,6 +198,7 @@ When done, call report_opportunities exactly once.`;
         name: "web_search" as const,
         max_uses: this.opts.maxSearches ?? 5,
         user_location: { type: "approximate" as const, city: "Detroit", region: "Michigan", country: "US", timezone: "America/Detroit" },
+        ...(domains.length ? { allowed_domains: domains } : {}),
       },
       REPORT_TOOL,
     ];
@@ -222,6 +236,8 @@ When done, call report_opportunities exactly once.`;
       deadlineConfirmed: false, // only set true once found on the page
       amountMax: f.amount_usd ?? undefined,
       eligibilityText: f.eligibility ?? undefined,
+      fundingType: f.category === "grants_financing" ? inferFundingType(`${f.title} ${f.summary}`) : f.category === "contracts" ? "contract" : "unknown",
+      opportunityType: /\b(projected|planned|forecast|anticipated)\b/i.test(f.summary) ? "forecast" : undefined,
       raw: { finding: f },
     };
   }
