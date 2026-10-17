@@ -1,65 +1,65 @@
-# Unit tests + typecheck — 2026-10-17T16:28:18Z
+# Unit tests + typecheck — 2026-10-17T16:29:18Z
  ✓ tests/shopify.test.ts > shop domain validation > accepts myshopify domains only 2ms
  ✓ tests/shopify.test.ts > OAuth query HMAC > accepts a correctly signed query 1ms
  ✓ tests/shopify.test.ts > OAuth query HMAC > rejects tampering, a wrong secret, or a missing hmac 1ms
  ✓ tests/shopify.test.ts > webhook HMAC > accepts the raw body signature 0ms
- ✓ tests/shopify.test.ts > webhook HMAC > rejects a re-serialized or modified body 1ms
+ ✓ tests/shopify.test.ts > webhook HMAC > rejects a re-serialized or modified body 0ms
  ✓ tests/shopify.test.ts > authorize URL & token exchange > builds the authorize URL on the shop domain 1ms
- ✓ tests/shopify.test.ts > authorize URL & token exchange > exchanges a code for a token 7ms
- ✓ tests/shopify.test.ts > token encryption > round-trips and uses a fresh IV each time 2ms
+ ✓ tests/shopify.test.ts > authorize URL & token exchange > exchanges a code for a token 6ms
+ ✓ tests/shopify.test.ts > token encryption > round-trips and uses a fresh IV each time 3ms
  ✓ tests/shopify.test.ts > token encryption > detects tampering and wrong keys 2ms
  ✓ tests/shopify.test.ts > order attribution > extracts experiment, visitor and value from hidden cart attributes 1ms
  ✓ tests/shopify.test.ts > order attribution > ignores orders without attribution or with malformed values 0ms
- ✓ tests/shopify.test.ts > product mapping > maps GraphQL nodes and falls back to the handle URL 0ms
+ ✓ tests/shopify.test.ts > product mapping > maps GraphQL nodes and falls back to the handle URL 1ms
  ✓ tests/shopify.test.ts > product mapping > guesses supported categories and returns null otherwise 1ms
- ✓ tests/service.test.ts > runTryOn > generates, stores the result privately, logs cost and latency 5ms
+ ✓ tests/service.test.ts > runTryOn > generates, stores the result privately, logs cost and latency 9ms
  ✓ tests/service.test.ts > runTryOn > blocks when the merchant's hard-capped monthly allowance is used up, before spending 2ms
- ✓ tests/service.test.ts > runTryOn > allows overage when the plan is not hard-capped 0ms
- ✓ tests/service.test.ts > runTryOn > blocks suspended merchants 0ms
+ ✓ tests/service.test.ts > runTryOn > allows overage when the plan is not hard-capped 1ms
+ ✓ tests/service.test.ts > runTryOn > blocks suspended merchants 1ms
  ✓ tests/service.test.ts > runTryOn > does not record usage for failed generations 1ms
- ✓ tests/service.test.ts > runTryOn > returns 503 honestly when no provider is configured 0ms
+ ✓ tests/service.test.ts > runTryOn > returns 503 honestly when no provider is configured 1ms
  ✓ tests/service.test.ts > runTryOn > refuses photos owned by someone else 0ms
  ✓ tests/service.test.ts > runTryOn > refuses expired photos (retention policy) 0ms
  ✓ tests/service.test.ts > runTryOn > refuses unsupported categories before spending money 1ms
- ✓ tests/service.test.ts > runTryOn > rate-limits before calling the provider 0ms
+ ✓ tests/service.test.ts > runTryOn > rate-limits before calling the provider 1ms
  ✓ tests/service.test.ts > runTryOn > logs provider failures with zero cost and a user-safe message 1ms
- ✓ tests/service.test.ts > runTryOn > treats unexpected errors as provider_error (502) 0ms
+ ✓ tests/service.test.ts > runTryOn > treats unexpected errors as provider_error (502) 1ms
  ✓ tests/api.test.ts > API keys > generates distinct, typed keys and stores only a hash 5ms
  ✓ tests/api.test.ts > API keys > parses bearer tokens and normalizes origins 1ms
- ✓ tests/api.test.ts > SSRF protection for image URLs > classifies private and public addresses 10ms
+ ✓ tests/api.test.ts > SSRF protection for image URLs > classifies private and public addresses 15ms
  ✓ tests/api.test.ts > SSRF protection for image URLs > refuses non-https, odd ports, credentials, and hosts resolving to private IPs 5ms
- ✓ tests/api.test.ts > SSRF protection for image URLs > refuses redirects, oversized and non-image responses 6ms
+ ✓ tests/api.test.ts > SSRF protection for image URLs > refuses redirects, oversized and non-image responses 7ms
  ✓ tests/api.test.ts > SSRF protection for image URLs > downloads and validates a public image 1ms
  ✓ tests/api.test.ts > SSRF protection for image URLs > decodes base64 / data URLs with validation 1ms
- ✓ tests/api.test.ts > runApiTryOn > generates, stores under the merchant's API folder, meters usage and attributes to the key 3ms
- ✓ tests/api.test.ts > runApiTryOn > enforces the per-key rate limit and the monthly allowance before spending 2ms
+ ✓ tests/api.test.ts > runApiTryOn > generates, stores under the merchant's API folder, meters usage and attributes to the key 4ms
+ ✓ tests/api.test.ts > runApiTryOn > enforces the per-key rate limit and the monthly allowance before spending 1ms
  ✓ tests/api.test.ts > runApiTryOn > does not bill failures and returns stable error codes 1ms
  ✓ tests/api.test.ts > runApiTryOn > reports provider_unavailable honestly when no provider is configured 0ms
- ✓ tests/env.test.ts > validateEnv > accepts a complete private staging configuration 4ms
- ✓ tests/env.test.ts > validateEnv > catches a service-role key placed in the public anon variable 1ms
- ✓ tests/env.test.ts > validateEnv > catches secrets exposed through NEXT_PUBLIC_ variables 1ms
- ✓ tests/env.test.ts > validateEnv > refuses a public deployment without explicit launch approval 1ms
- ✓ tests/env.test.ts > validateEnv > refuses live billing and live Stripe keys 0ms
- ✓ tests/env.test.ts > validateEnv > refuses a FASHN base URL override outside development 0ms
- ✓ tests/env.test.ts > validateEnv > requires complete Shopify configuration and a 32-byte key 0ms
- ✓ tests/env.test.ts > validateEnv > is lenient in development but warns 0ms
- ✓ tests/env.test.ts > site access gate > is on by default for deployed environments 1ms
- ✓ tests/env.test.ts > site access gate > lets self-authenticating server endpoints through 0ms
- ✓ tests/env.test.ts > site access gate > checks the basic-auth password 1ms
- ✓ tests/providers.test.ts > FashnProvider > submits a job, polls until completed and decodes base64 output 30ms
- ✓ tests/providers.test.ts > FashnProvider > maps moderation failures to content_rejected 4ms
+ ✓ tests/providers.test.ts > FashnProvider > submits a job, polls until completed and decodes base64 output 19ms
+ ✓ tests/providers.test.ts > FashnProvider > maps moderation failures to content_rejected 5ms
  ✓ tests/providers.test.ts > FashnProvider > maps HTTP 429 to retryable rate_limited 1ms
- ✓ tests/providers.test.ts > FashnProvider > times out instead of polling forever 11ms
- ✓ tests/providers.test.ts > FashnProvider > refuses to construct without an API key 1ms
+ ✓ tests/providers.test.ts > FashnProvider > times out instead of polling forever 10ms
+ ✓ tests/providers.test.ts > FashnProvider > refuses to construct without an API key 0ms
  ✓ tests/providers.test.ts > VertexTryOnProvider > calls :predict with base64 person and product images 1ms
  ✓ tests/providers.test.ts > VertexTryOnProvider > treats a filtered/empty prediction as content_rejected 1ms
  ✓ tests/providers.test.ts > createProvider > returns null (never a fake provider) when unconfigured 0ms
  ✓ tests/providers.test.ts > createProvider > labels stub-endpoint runs as contract-stub at $0 0ms
  ✓ tests/providers.test.ts > createProvider > builds FASHN with configured cost 0ms
+ ✓ tests/env.test.ts > validateEnv > accepts a complete private staging configuration 5ms
+ ✓ tests/env.test.ts > validateEnv > catches a service-role key placed in the public anon variable 1ms
+ ✓ tests/env.test.ts > validateEnv > catches secrets exposed through NEXT_PUBLIC_ variables 1ms
+ ✓ tests/env.test.ts > validateEnv > refuses a public deployment without explicit launch approval 1ms
+ ✓ tests/env.test.ts > validateEnv > refuses live billing and live Stripe keys 1ms
+ ✓ tests/env.test.ts > validateEnv > refuses a FASHN base URL override outside development 9ms
+ ✓ tests/env.test.ts > validateEnv > requires complete Shopify configuration and a 32-byte key 1ms
+ ✓ tests/env.test.ts > validateEnv > is lenient in development but warns 0ms
+ ✓ tests/env.test.ts > site access gate > is on by default for deployed environments 1ms
+ ✓ tests/env.test.ts > site access gate > lets self-authenticating server endpoints through 0ms
+ ✓ tests/env.test.ts > site access gate > checks the basic-auth password 1ms
  ✓ tests/experiments.test.ts > assignArm > is deterministic per visitor and salt 2ms
- ✓ tests/experiments.test.ts > assignArm > splits close to the configured share across many visitors 175ms
- ✓ tests/experiments.test.ts > assignArm > re-randomizes when the salt changes 16ms
- ✓ tests/experiments.test.ts > sampleRatioMismatch > does not flag a fair split 1ms
+ ✓ tests/experiments.test.ts > assignArm > splits close to the configured share across many visitors 189ms
+ ✓ tests/experiments.test.ts > assignArm > re-randomizes when the salt changes 15ms
+ ✓ tests/experiments.test.ts > sampleRatioMismatch > does not flag a fair split 0ms
  ✓ tests/experiments.test.ts > sampleRatioMismatch > flags a broken split 0ms
  ✓ tests/experiments.test.ts > analyze > reports insufficient data on small samples instead of a verdict 1ms
  ✓ tests/experiments.test.ts > analyze > finds a clear positive effect with a CI excluding zero 0ms
@@ -67,35 +67,10 @@
  ✓ tests/experiments.test.ts > analyze > refuses a verdict when the sample ratio is broken 0ms
  ✓ tests/experiments.test.ts > analyze > reports progress against the planned sample 0ms
  ✓ tests/experiments.test.ts > requiredVisitorsPerArm > matches the pilot plan figure (6% baseline, +10% relative, α=.05, 80% power) 0ms
- ✓ tests/claims.test.ts > claims scanner self-test > flags the kinds of claims found in the legacy prototype 8ms
- ✓ tests/claims.test.ts > claims scanner self-test > allows honest disclaimers 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > scans user-facing files 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/account/page.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/admin/page.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/developers/page.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/embed/[productId]/page.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/layout.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/login/page.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/page.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/privacy/page.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/studio/page.tsx 2ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/try-on/page.tsx 6ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/AccountActions.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/EmbedSignIn.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/LandingTracker.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/SiteHeader.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioForms.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioPanels.tsx 2ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/TrackedLink.tsx 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/TryOnFlow.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/WaitlistForm.tsx 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/consent.ts 0ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/limits.ts 1ms
- ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/tryon/service.ts 1ms
  ✓ tests/billing.test.ts > estimateInvoice > charges base only within the allowance 2ms
- ✓ tests/billing.test.ts > estimateInvoice > adds overage beyond the allowance 2ms
+ ✓ tests/billing.test.ts > estimateInvoice > adds overage beyond the allowance 1ms
  ✓ tests/billing.test.ts > estimateInvoice > never bills overage on hard-capped plans 0ms
- ✓ tests/billing.test.ts > estimateInvoice > respects merchant quota overrides 1ms
+ ✓ tests/billing.test.ts > estimateInvoice > respects merchant quota overrides 0ms
  ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > shows the brief's original Growth tier is negative-margin at full use and on-demand cost 0ms
  ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > shows recommended Starter stays positive at full use and on-demand cost 0ms
  ✓ tests/billing.test.ts > grossMargin (corrected unit economics) > accounts for overage revenue and its cost 0ms
@@ -104,34 +79,50 @@
  ✓ tests/billing.test.ts > billingMode > supports shadow 0ms
  ✓ tests/billing.test.ts > billingMode > refuses live billing in this build 1ms
  ✓ tests/billing.test.ts > billingMode > computes UTC billing periods 1ms
- ✓ tests/image.test.ts > validateImage > accepts PNG, JPEG and WebP and reads dimensions 5ms
+ ✓ tests/claims.test.ts > claims scanner self-test > flags the kinds of claims found in the legacy prototype 5ms
+ ✓ tests/claims.test.ts > claims scanner self-test > allows honest disclaimers 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > scans user-facing files 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/account/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/admin/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/developers/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/embed/[productId]/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/layout.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/login/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/page.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/privacy/page.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/studio/page.tsx 4ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > app/try-on/page.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/AccountActions.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/EmbedSignIn.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/LandingTracker.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/SiteHeader.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioForms.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/StudioPanels.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/TrackedLink.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/TryOnFlow.tsx 1ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > components/WaitlistForm.tsx 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/consent.ts 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/limits.ts 0ms
+ ✓ tests/claims.test.ts > no unsupported claims in user-facing source > lib/tryon/service.ts 1ms
+ ✓ tests/image.test.ts > validateImage > accepts PNG, JPEG and WebP and reads dimensions 6ms
  ✓ tests/image.test.ts > validateImage > rejects files whose bytes are not an image, regardless of name or MIME 1ms
  ✓ tests/image.test.ts > validateImage > rejects empty and oversized files 2ms
  ✓ tests/image.test.ts > validateImage > enforces minimum and maximum dimensions 1ms
  ✓ tests/image.test.ts > validateImage > rejects truncated headers 0ms
  ✓ tests/limits.test.ts > evaluateLimits > allows under all limits 4ms
  ✓ tests/limits.test.ts > evaluateLimits > blocks bursts per minute 2ms
- ✓ tests/limits.test.ts > evaluateLimits > blocks at the daily per-user cap 1ms
+ ✓ tests/limits.test.ts > evaluateLimits > blocks at the daily per-user cap 0ms
  ✓ tests/limits.test.ts > evaluateLimits > blocks when the next image would exceed the global budget 1ms
  ✓ tests/limits.test.ts > evaluateLimits > falls back to safe defaults on bad env values 1ms
- ✓ tests/schemas.test.ts > waitlistSchema > normalises email 8ms
+ ✓ tests/schemas.test.ts > waitlistSchema > normalises email 6ms
  ✓ tests/schemas.test.ts > waitlistSchema > rejects honeypot submissions 2ms
  ✓ tests/schemas.test.ts > waitlistSchema > rejects invalid store URLs 1ms
  ✓ tests/schemas.test.ts > productFieldsSchema > accepts a valid product 1ms
  ✓ tests/schemas.test.ts > productFieldsSchema > requires https purchase URLs 1ms
  ✓ tests/schemas.test.ts > productFieldsSchema > rejects malformed prices 1ms
- ✓ tests/http.test.ts > sameOrigin > accepts the host the browser addressed even if req.url differs (proxy / next start) 5ms
- ✓ tests/http.test.ts > sameOrigin > rejects other origins 2ms
+ ✓ tests/http.test.ts > sameOrigin > accepts the host the browser addressed even if req.url differs (proxy / next start) 6ms
+ ✓ tests/http.test.ts > sameOrigin > rejects other origins 11ms
  ✓ tests/http.test.ts > sameOrigin > allows requests without an Origin header (server-to-server) 1ms
  Test Files  12 passed (12)
       Tests  124 passed (124)
-tests/api.test.ts(39,65): error TS2322: Type 'Mock<() => Response>' is not assignable to type '{ (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; }'.
-  Type 'Response' is missing the following properties from type 'Promise<Response>': then, catch, finally, [Symbol.toStringTag]
-tests/api.test.ts(40,71): error TS2322: Type 'Mock<() => Response>' is not assignable to type '{ (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; }'.
-  Type 'Response' is missing the following properties from type 'Promise<Response>': then, catch, finally, [Symbol.toStringTag]
-tests/api.test.ts(41,70): error TS2322: Type 'Mock<() => Response>' is not assignable to type '{ (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; }'.
-  Type 'Response' is missing the following properties from type 'Promise<Response>': then, catch, finally, [Symbol.toStringTag]
-tests/api.test.ts(42,81): error TS2322: Type 'Mock<() => Response>' is not assignable to type '{ (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; }'.
-  Type 'Response' is missing the following properties from type 'Promise<Response>': then, catch, finally, [Symbol.toStringTag]
-tests/api.test.ts(43,71): error TS2322: Type 'Mock<() => Response>' is not assignable to type '{ (input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>; (input: string | URL | Request, init?: RequestInit | undefined): Promise<...>; }'.
-  Type 'Response' is missing the following properties from type 'Promise<Response>': then, catch, finally, [Symbol.toStringTag]
+typecheck: OK

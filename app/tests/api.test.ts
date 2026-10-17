@@ -35,7 +35,7 @@ describe("SSRF protection for image URLs", () => {
   });
   const ok = () => new Response(png(800, 1000), { status: 200, headers: { "content-type": "image/png" } });
   it("refuses non-https, odd ports, credentials, and hosts resolving to private IPs", async () => {
-    const f = vi.fn(ok);
+    const f = vi.fn(async () => ok());
     await expect(fetchRemoteImage("http://cdn.example/a.png", { fetchImpl: f })).rejects.toThrow(/https/);
     await expect(fetchRemoteImage("https://cdn.example:8443/a.png", { fetchImpl: f })).rejects.toThrow(/port/);
     await expect(fetchRemoteImage("https://u:p@cdn.example/a.png", { fetchImpl: f })).rejects.toThrow(/credentials/);
