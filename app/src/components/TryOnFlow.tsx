@@ -15,7 +15,7 @@ export interface CatalogItem {
 type Photo = { id: string; previewUrl: string; expiresAt: string };
 type Result = { generationId: string; resultUrl: string; personUrl: string; product: { id: string; name: string; purchaseUrl: string } };
 
-export function TryOnFlow({ catalog, existingPhoto, providerReady, initialProduct = null }: { catalog: CatalogItem[]; existingPhoto: Photo | null; providerReady: boolean; initialProduct?: string | null }) {
+export function TryOnFlow({ catalog, existingPhoto, providerReady, initialProduct = null, embedKey }: { catalog: CatalogItem[]; existingPhoto: Photo | null; providerReady: boolean; initialProduct?: string | null; embedKey?: string }) {
   const [photo, setPhoto] = useState<Photo | null>(existingPhoto);
   const [selected, setSelected] = useState<string | null>(initialProduct);
   const [status, setStatus] = useState<"idle" | "generating">("idle");
@@ -30,7 +30,7 @@ export function TryOnFlow({ catalog, existingPhoto, providerReady, initialProduc
     const res = await fetch("/api/try-on", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoId: photo.id, productId: selected }),
+      body: JSON.stringify({ photoId: photo.id, productId: selected, ...(embedKey ? { embedKey } : {}) }),
     }).catch(() => null);
     const body = await res?.json().catch(() => null);
     setStatus("idle");

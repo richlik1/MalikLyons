@@ -8,6 +8,7 @@ export async function POST(req: Request) {
   if (!sameOrigin(req)) return jsonError(403, "bad_origin", "Cross-site request rejected.");
   const user = await getSessionUser();
   if (!user) return jsonError(401, "unauthenticated", "Please sign in.");
+  if (user.is_anonymous) return jsonError(403, "account_required", "Sign in with your email to create a store.");
   const parsed = await parseJson(req, merchantSchema);
   if (!parsed.ok) return parsed.res;
 

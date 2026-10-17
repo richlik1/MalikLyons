@@ -1,4 +1,4 @@
-import { ExperimentControls, ExperimentCreateForm, MerchantFeedbackForm, ProductActiveToggle, ShopifyPanel } from "@/components/StudioPanels";
+import { ApiKeysPanel, ExperimentControls, ExperimentCreateForm, MerchantFeedbackForm, ProductActiveToggle, ShopifyPanel } from "@/components/StudioPanels";
 import { MerchantOnboarding, ProductForm } from "@/components/StudioForms";
 import { analyze, type ArmSummary } from "@/lib/experiments";
 import { createUserClient, getSessionUser } from "@/lib/supabase/server";
@@ -21,7 +21,7 @@ export default async function StudioPage() {
     );
   }
 
-  const [{ data: products }, { data: stats }, { data: usageRows }, { data: pilot }, { data: feedbackRows }, { data: experiments }, { data: shopRows }] = await Promise.all([
+  const [{ data: products }, { data: stats }, { data: usageRows }, { data: pilot }, { data: feedbackRows }, { data: experiments }, { data: shopRows }, { data: apiKeys }] = await Promise.all([
     supabase.from("products").select("id, name, category, price_cents, purchase_url, is_active").eq("merchant_id", merchant.id).order("created_at", { ascending: false }),
     supabase.rpc("merchant_product_stats", { p_merchant: merchant.id }),
     supabase.rpc("merchant_usage_summary", { p_merchant: merchant.id }),
@@ -29,6 +29,7 @@ export default async function StudioPage() {
     supabase.from("merchant_feedback").select("pilot_week").eq("merchant_id", merchant.id),
     supabase.from("experiments").select("id, key, hypothesis, status, treatment_pct, primary_metric, planned_visitors_per_arm, started_at").eq("merchant_id", merchant.id).order("created_at", { ascending: false }),
     supabase.rpc("shopify_status", { p_merchant: merchant.id }),
+    supabase.from("api_keys").select("id, kind, name, prefix, allowed_origins, created_at, last_used_at, revoked_at").eq("merchant_id", merchant.id).order("created_at", { ascending: false }),
   ]);
   const connectedShop = ((shopRows ?? []) as { shop_domain: string }[])[0]?.shop_domain ?? null;
   const shopifyConfigured = Boolean(process.env.SHOPIFY_API_KEY && process.env.SHOPIFY_API_SECRET && process.env.SHOPIFY_TOKEN_ENCRYPTION_KEY);
@@ -147,6 +148,11 @@ export default async function StudioPage() {
             </table>
           </div>
         )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="eyebrow">Website widget &amp; API keys</h2>
+        <ApiKeysPanel keys={apiKeys ?? []} siteUrl={process.env.NEXT_PUBLIC_SITE_URL ?? ""} sampleProductId={(products ?? []).find((p) => p.is_active)?.id ?? null} />
       </section>
 
       <section className="max-w-xl space-y-3">

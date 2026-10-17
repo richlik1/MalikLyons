@@ -165,3 +165,86 @@ export function ShopifyPanel({ connectedShop, configured }: { connectedShop: str
     </div>
   );
 }
+
+type ApiKeyRow = { id: string; kind: string; name: string; prefix: string; allowed_origins: string[]; created_at: string; last_used_at: string | null; revoked_at: string | null };
+
+export function ApiKeysPanel({ keys, siteUrl, sampleProductId }: { keys: ApiKeyRow[]; siteUrl: string; sampleProductId: string | null }) {
+  const router = useRouter();
+  const [created, setCreated] = useState<{ key: string; kind: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const active = keys.filter((k) => !k.revoked_at);
+  const pk = created?.kind === "publishable" ? created.key : "ts_pk_…";
+  return (
+    <div className="space-y-3">
+      {created && (
+        <div className="notice space-y-2" role="status">
+          <p><strong>Copy your {created.kind} key now.</strong> It won&apos;t be shown again.</p>
+          <code className="block break-all rounded-lg bg-paper-raised p-2 text-xs">{created.key}</code>
+        </div>
+      )}
+      {active.length > 0 && (
+        <div className="overflow-x-auto rounded-card border border-line bg-paper-raised">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-line text-ink-muted"><tr><th className="p-3">Name</th><th className="p-3">Type</th><th className="p-3">Key</th><th className="p-3">Allowed sites</th><th className="p-3">Last used</th><th className="p-3" /></tr></thead>
+            <tbody>
+              {active.map((k) => (
+                <tr key={k.id} className="border-b border-line last:border-0">
+                  <td className="p-3">{k.name}</td>
+                  <td className="p-3">{k.kind === "secret" ? "Secret (server API)" : "Publishable (widget)"}</td>
+                  <td className="p-3 font-mono text-xs">{k.prefix}…</td>
+                  <td className="p-3 text-xs">{k.allowed_origins.join(", ") || "—"}</td>
+                  <td className="p-3 text-xs">{k.last_used_at ? new Date(k.last_used_at).toLocaleString() : "never"}</td>
+                  <td className="p-3 text-right">
+                    <button className="btn-danger min-h-[32px] px-3 text-xs" onClick={async () => {
+                      if (!confirm("Revoke this key? Anything using it stops working immediately.")) return;
+                      await fetch(`/api/merchant/api-keys/${k.id}`, { method: "DELETE" });
+                      router.refresh();
+                    }}>Revoke</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <form
+        className="card grid gap-3 sm:grid-cols-[1fr_1fr_2fr_auto] sm:items-end"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setError(null);
+          const f = new FormData(e.currentTarget);
+          const kind = String(f.get("kind"));
+          const res = await fetch("/api/merchant/api-keys", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind, name: f.get("name") || "Default", allowedOrigins: String(f.get("origins") || "").split(/[\s,]+/).filter(Boolean) }),
+          });
+          const body = await res.json().catch(() => null);
+          if (res.ok) { setCreated({ key: body.key, kind }); router.refresh(); } else setError(body?.error?.message ?? "Couldn't create the key.");
+        }}
+      >
+        <div><label className="label" htmlFor="k-name">Name</label><input id="k-name" name="name" className="field" placeholder="Production" maxLength={60} /></div>
+        <div>
+          <label className="label" htmlFor="k-kind">Type</label>
+          <select id="k-kind" name="kind" className="field" defaultValue="publishable">
+            <option value="publishable">Publishable (website widget)</option>
+            <option value="secret">Secret (server API)</option>
+          </select>
+        </div>
+        <div><label className="label" htmlFor="k-origins">Allowed websites (widget)</label><input id="k-origins" name="origins" className="field" placeholder="https://yourstore.com" /></div>
+        <button className="btn-primary">Create key</button>
+      </form>
+      {error && <p className="error-text" role="alert">{error}</p>}
+      <details className="card text-sm">
+        <summary className="cursor-pointer font-semibold">Install on your website (2 lines)</summary>
+        <p className="mt-2 text-ink-soft">Paste on any product page. The button opens TrendSet&apos;s try-on in a new window for that product.</p>
+        <pre className="mt-2 overflow-x-auto rounded-lg bg-paper-sunken p-3 text-xs">{`<script src="${siteUrl}/widget.js" data-key="${pk}" defer></script>
+<button data-trendset-product="${sampleProductId ?? "<product id>"}">See it on you</button>`}</pre>
+        <p className="mt-3 text-ink-soft">Server API (secret key):</p>
+        <pre className="mt-2 overflow-x-auto rounded-lg bg-paper-sunken p-3 text-xs">{`curl -X POST ${siteUrl}/api/v1/try-ons \\
+  -H "Authorization: Bearer ts_sk_…" -H "Content-Type: application/json" \\
+  -d '{"person_image_url":"https://…/shopper.jpg","product_id":"${sampleProductId ?? "<product id>"}"}'`}</pre>
+        <p className="mt-2 text-xs text-ink-muted">Full reference: <a className="underline" href="/developers">/developers</a></p>
+      </details>
+    </div>
+  );
+}

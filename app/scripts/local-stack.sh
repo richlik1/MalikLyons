@@ -50,7 +50,7 @@ up() {
     -e GOTRUE_SITE_URL=http://127.0.0.1:3000 -e GOTRUE_URI_ALLOW_LIST="http://127.0.0.1:3000/**" \
     -e GOTRUE_JWT_SECRET="$JWT" -e GOTRUE_JWT_EXP=3600 -e GOTRUE_JWT_AUD=authenticated \
     -e GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated -e GOTRUE_JWT_ADMIN_ROLES=service_role \
-    -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true -e GOTRUE_MAILER_AUTOCONFIRM=true -e GOTRUE_DISABLE_SIGNUP=false $AUTH_IMAGE >/dev/null
+    -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true -e GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED=true -e GOTRUE_MAILER_AUTOCONFIRM=true -e GOTRUE_DISABLE_SIGNUP=false $AUTH_IMAGE >/dev/null
   docker run -d --name ts-rest --network ts-net -p $REST_PORT:3000 \
     -e "PGRST_DB_URI=postgres://authenticator:postgres@ts-db:5432/postgres" -e PGRST_DB_SCHEMAS=public,storage \
     -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET="$JWT" $REST_IMAGE >/dev/null
@@ -70,7 +70,13 @@ up() {
   echo "stack up. gateway: node scripts/dev-gateway.mjs (port 54321)"
 }
 
-down() { docker rm -f ts-db ts-auth ts-rest ts-storage >/dev/null 2>&1 || true; rm -rf "$STATE_DIR"; echo "stack down"; }
+down() {
+  docker rm -f ts-db ts-auth ts-rest ts-storage >/dev/null 2>&1 || true
+  # Storage files are written by the container as another user; remove them through Docker.
+  [ -d "$STATE_DIR" ] && docker run --rm -v "$STATE_DIR:/s" --entrypoint sh supabase/postgres:15.8.1.060 -c "rm -rf /s/*" >/dev/null 2>&1 || true
+  rm -rf "$STATE_DIR" 2>/dev/null || true
+  echo "stack down"
+}
 
 env_out() {
   . "$STATE_DIR/keys.env"

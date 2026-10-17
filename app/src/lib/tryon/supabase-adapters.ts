@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BlobStore, GenerationPatch, NewGeneration, PhotoRecord, ProductRecord, TryOnRepo } from "./service";
-import type { UsageSnapshot } from "../limits";
+import type { MerchantQuota, UsageSnapshot } from "../limits";
 
 export class SupabaseTryOnRepo implements TryOnRepo {
   constructor(private readonly admin: SupabaseClient) {}
@@ -46,7 +46,6 @@ export class SupabaseTryOnRepo implements TryOnRepo {
   async getUsage(userId: string, merchantId: string, now: Date): Promise<UsageSnapshot> {
     const minuteAgo = new Date(now.getTime() - 60_000).toISOString();
     const dayAgo = new Date(now.getTime() - 86_400_000).toISOString();
-    const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 
     const countSince = async (since: string) => {
       const { count, error } = await this.admin
@@ -59,16 +58,26 @@ export class SupabaseTryOnRepo implements TryOnRepo {
       return count ?? 0;
     };
 
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const [userLastMinute, userLastDay, spend, merchant, merchantUsed] = await Promise.all([
+    const [userLastMinute, userLastDay, globalSpendTodayUsd, merchant] = await Promise.all([
       countSince(minuteAgo),
       countSince(dayAgo),
-      this.admin.from("generations").select("cost_usd").gte("created_at", utcMidnight),
-      this.admin
-        .from("merchants")
-        .select("status, monthly_generation_quota, plans(included_generations, hard_cap)")
-        .eq("id", merchantId)
-        .maybeSingle(),
+      this.globalSpendToday(now),
+      this.merchantQuota(merchantId, now),
+    ]);
+    return { userLastMinute, userLastDay, globalSpendTodayUsd, merchant };
+  }
+
+  async globalSpendToday(now: Date): Promise<number> {
+    const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    const spend = await this.admin.from("generations").select("cost_usd").gte("created_at", utcMidnight);
+    if (spend.error) throw spend.error;
+    return (spend.data ?? []).reduce((sum, r) => sum + Number(r.cost_usd ?? 0), 0);
+  }
+
+  async merchantQuota(merchantId: string, now: Date): Promise<MerchantQuota | undefined> {
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const [merchant, merchantUsed] = await Promise.all([
+      this.admin.from("merchants").select("status, monthly_generation_quota, plans(included_generations, hard_cap)").eq("id", merchantId).maybeSingle(),
       this.admin
         .from("generations")
         .select("id", { count: "exact", head: true })
@@ -76,24 +85,27 @@ export class SupabaseTryOnRepo implements TryOnRepo {
         .in("status", ["pending", "succeeded"])
         .gte("created_at", monthStart),
     ]);
-    if (spend.error) throw spend.error;
     if (merchant.error) throw merchant.error;
     if (merchantUsed.error) throw merchantUsed.error;
-    const globalSpendTodayUsd = (spend.data ?? []).reduce((sum, r) => sum + Number(r.cost_usd ?? 0), 0);
-    const plan = merchant.data?.plans as unknown as { included_generations: number; hard_cap: boolean } | null;
+    if (!merchant.data) return undefined;
+    const plan = merchant.data.plans as unknown as { included_generations: number; hard_cap: boolean } | null;
     return {
-      userLastMinute,
-      userLastDay,
-      globalSpendTodayUsd,
-      merchant: merchant.data
-        ? {
-            used: merchantUsed.count ?? 0,
-            included: merchant.data.monthly_generation_quota ?? plan?.included_generations ?? 0,
-            hardCap: plan?.hard_cap ?? true,
-            status: merchant.data.status === "suspended" ? "suspended" : "active",
-          }
-        : undefined,
+      used: merchantUsed.count ?? 0,
+      included: merchant.data.monthly_generation_quota ?? plan?.included_generations ?? 0,
+      hardCap: plan?.hard_cap ?? true,
+      status: merchant.data.status === "suspended" ? "suspended" : "active",
     };
+  }
+
+  async getApiUsage(merchantId: string, apiKeyId: string, now: Date) {
+    const minuteAgo = new Date(now.getTime() - 60_000).toISOString();
+    const [globalSpendTodayUsd, merchant, keyMinute] = await Promise.all([
+      this.globalSpendToday(now),
+      this.merchantQuota(merchantId, now),
+      this.admin.from("generations").select("id", { count: "exact", head: true }).eq("api_key_id", apiKeyId).gte("created_at", minuteAgo),
+    ]);
+    if (keyMinute.error) throw keyMinute.error;
+    return { globalSpendTodayUsd, merchant, keyLastMinute: keyMinute.count ?? 0 };
   }
 
   async createGeneration(row: NewGeneration): Promise<string> {
@@ -108,6 +120,9 @@ export class SupabaseTryOnRepo implements TryOnRepo {
         model: row.model,
         status: "pending",
         cost_usd: row.reservedCostUsd,
+        source: row.source ?? "app",
+        api_key_id: row.apiKeyId ?? null,
+        external_ref: row.externalRef ?? null,
       })
       .select("id")
       .single();

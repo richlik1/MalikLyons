@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { lookupKey } from "@/lib/api-auth";
 import { jsonError, parseJson, sameOrigin } from "@/lib/http";
 import { limitConfigFromEnv } from "@/lib/limits";
 import { createProvider } from "@/lib/providers";
@@ -20,9 +21,17 @@ export async function POST(req: Request) {
   if (!parsed.ok) return parsed.res;
 
   const admin = createAdminClient();
+  // Widget sessions: attribute usage to the publishable key, and only for that merchant's products.
+  let embed: { source: "embed"; apiKeyId: string } | null = null;
+  if (parsed.data.embedKey) {
+    const caller = await lookupKey(parsed.data.embedKey, "publishable");
+    const { data: p } = await admin.from("products").select("merchant_id").eq("id", parsed.data.productId).maybeSingle();
+    if (!caller || !p || p.merchant_id !== caller.merchantId) return jsonError(403, "embed_not_allowed", "Try-on isn't available for this product here.");
+    embed = { source: "embed", apiKeyId: caller.keyId };
+  }
   try {
     const result = await runTryOn(
-      { userId: user.id, ...parsed.data },
+      { userId: user.id, photoId: parsed.data.photoId, productId: parsed.data.productId, ...(embed ?? {}) },
       {
         repo: new SupabaseTryOnRepo(admin),
         blobs: new SupabaseBlobStore(admin),

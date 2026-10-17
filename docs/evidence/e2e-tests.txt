@@ -1,15 +1,27 @@
-# End-to-end tests — LOCAL STACK; AI provider = LOCAL FASHN CONTRACT STUB (logged as model 'contract-stub', $0), NOT the real FASHN API — 2026-10-14T04:04:05Z
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > serves the landing page without performance claims 32ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > records landing events and waitlist signups (duplicate emails look identical) 64ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > rejects photo uploads without consent and non-images disguised as images 31ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > stores a consented photo privately 89ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > generates a try-on through the provider pipeline (STUBBED provider), meters usage and stores the result 3207ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > records the click-through to the merchant's product page 45ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > does not let another user save, click or delete someone else's look or photo 281ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > enforces the merchant's monthly allowance before calling the provider 62ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > runs a randomized experiment: CORS-restricted assignment, events, and order attribution via a signed Shopify webhook 423ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > deleting a photo removes it and its results from storage 156ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > deleting the account removes the user and their storage folders 92ms
- ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > exposes a health report only with the cron secret 52ms
- Test Files  1 passed (1)
-      Tests  12 passed (12)
+# End-to-end — LOCAL STACK; AI provider = LOCAL FASHN CONTRACT STUB ('contract-stub', $0), NOT FASHN — 2026-10-17T16:28:38Z
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > serves the landing page without performance claims 41ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > records landing events and waitlist signups (duplicate emails look identical) 76ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > rejects photo uploads without consent and non-images disguised as images 39ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > stores a consented photo privately 105ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > generates a try-on through the provider pipeline (STUBBED provider), meters usage and stores the result 3280ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > records the click-through to the merchant's product page 37ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > does not let another user save, click or delete someone else's look or photo 294ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > enforces the merchant's monthly allowance before calling the provider 69ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > runs a randomized experiment: CORS-restricted assignment, events, and order attribution via a signed Shopify webhook 459ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > deleting a photo removes it and its results from storage 169ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > deleting the account removes the user and their storage folders 153ms
+ ✓ tests/e2e/app.e2e.test.ts > end-to-end: app routes on the local stack > exposes a health report only with the cron secret 54ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > issues keys once, in the right format, storing only a hash 12ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > rejects missing, malformed, publishable-in-API and browser-side secret keys 28ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > creates a try-on from a catalog product (STUBBED provider) and retrieves it 3241ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > accepts a raw garment image with a category 3131ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > isolates tenants: another merchant can't read A's try-on or use A's products 83ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > blocks server-side request forgery via image URLs 73ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > validates request bodies 21ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > reports metered usage 28ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > revoked keys stop working immediately 195ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > serves the widget script and the OpenAPI spec 25ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > widget: refuses other websites and unknown keys 105ms
+ ✓ tests/e2e/api.e2e.test.ts > public API + widget (end to end) > widget: an anonymous shopper can try on the merchant's product, attributed to the publishable key 3455ms
+ Test Files  2 passed (2)
+      Tests  24 passed (24)

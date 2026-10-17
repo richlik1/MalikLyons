@@ -3,7 +3,8 @@
 AI virtual try-on for independent fashion brands. Shoppers preview garments on themselves, and merchants find out whether it actually helps them sell.
 
 > **Status (12 Oct 2026, after the production-readiness audit):**
-> - Tests: 110 unit · 37 integration on a **local** Supabase stack · 12 end-to-end with a **stubbed** AI provider · **0 live tests**.
+> - Tests: 124 unit · 41 integration on a **local** Supabase stack · 24 end-to-end with a **stubbed** AI provider · **0 live tests**.
+> - New: public **REST API v1** (secret keys) and a **2-line website widget** (publishable keys). See [docs/16-api-and-pricing.md](docs/16-api-and-pricing.md).
 > - No credentials for FASHN, hosted Supabase, Shopify or Stripe have been available, so **no real try-on image has ever been generated** and nothing has been deployed.
 > - Billing is disabled by design and staging is private by default.
 > - Demand is **not validated**.
@@ -41,6 +42,7 @@ AI virtual try-on for independent fashion brands. Shoppers preview garments on t
 | — | Billing architecture + corrected unit economics | [docs/13-billing-architecture.md](docs/13-billing-architecture.md) |
 | — | Pilot onboarding & merchant feedback | [docs/15-pilot-onboarding.md](docs/15-pilot-onboarding.md) |
 | — | Shopify app scaffold (unverified) | [app/shopify/](app/shopify/) |
+| — | **Public API, widget, status & pricing** | [docs/16-api-and-pricing.md](docs/16-api-and-pricing.md) · `/developers` · `/api/v1/openapi.json` |
 
 ## Quick start
 

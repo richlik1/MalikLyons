@@ -13,7 +13,7 @@ export async function SiteHeader() {
           {user ? (
             <>
               <Link className="rounded-full px-3 py-2 hover:bg-paper-sunken" href="/try-on">Try on</Link>
-              <Link className="rounded-full px-3 py-2 hover:bg-paper-sunken" href="/studio">Studio</Link>
+              {!user.is_anonymous && <Link className="rounded-full px-3 py-2 hover:bg-paper-sunken" href="/studio">Studio</Link>}
               <Link className="rounded-full px-3 py-2 hover:bg-paper-sunken" href="/account">Account</Link>
             </>
           ) : (

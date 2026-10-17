@@ -24,13 +24,16 @@ export interface ProductRecord {
 }
 
 export interface NewGeneration {
-  userId: string;
+  userId: string | null;
   merchantId: string;
-  productId: string;
-  personPhotoId: string;
+  productId: string | null;
+  personPhotoId: string | null;
   provider: string;
   model: string;
   reservedCostUsd: number;
+  source?: "app" | "api" | "embed";
+  apiKeyId?: string | null;
+  externalRef?: string | null;
 }
 
 export interface GenerationPatch {
@@ -91,7 +94,7 @@ const USER_MESSAGES: Record<string, string> = {
 };
 
 export async function runTryOn(
-  req: { userId: string; photoId: string; productId: string },
+  req: { userId: string; photoId: string; productId: string; source?: "app" | "embed"; apiKeyId?: string | null },
   deps: TryOnDeps,
 ): Promise<TryOnResult> {
   const now = deps.now?.() ?? new Date();
@@ -133,6 +136,8 @@ export async function runTryOn(
     provider: provider.id,
     model: provider.model,
     reservedCostUsd: provider.costPerImageUsd,
+    source: req.source ?? "app",
+    apiKeyId: req.apiKeyId ?? null,
   });
 
   const started = Date.now();

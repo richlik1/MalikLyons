@@ -31,6 +31,7 @@ export const landingEventSchema = z.object({
 export const tryOnSchema = z.object({
   photoId: z.string().uuid(),
   productId: z.string().uuid(),
+  embedKey: z.string().regex(/^ts_pk_[0-9A-Za-z]{32}$/).optional(),
 });
 
 export const feedbackSchema = z.object({

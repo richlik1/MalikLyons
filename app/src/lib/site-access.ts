@@ -5,7 +5,7 @@ export type Env = Record<string, string | undefined>;
 
 // Endpoints that authenticate themselves (CRON_SECRET, Shopify HMAC, health token) or are
 // public by design for storefront widgets (experiments: CORS-restricted, no personal data).
-const BYPASS = ["/api/cron/", "/api/shopify/webhooks", "/api/health", "/api/experiments/"];
+const BYPASS = ["/api/cron/", "/api/shopify/webhooks", "/api/health", "/api/experiments/", "/api/v1/", "/widget.js"];
 
 export function gateEnabled(env: Env): boolean {
   const appEnv = env.APP_ENV ?? "development";
