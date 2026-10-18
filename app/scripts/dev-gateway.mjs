@@ -10,6 +10,15 @@ const routes = [
 
 http
   .createServer((req, res) => {
+    // Like Supabase's gateway, allow browser clients (supabase-js) from any origin.
+    const cors = {
+      "access-control-allow-origin": req.headers.origin ?? "*",
+      "access-control-allow-credentials": "true",
+      "access-control-allow-headers": req.headers["access-control-request-headers"] ?? "authorization, apikey, content-type, x-client-info",
+      "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+      "access-control-expose-headers": "content-range, x-total-count",
+    };
+    if (req.method === "OPTIONS") { res.writeHead(204, cors).end(); return; }
     const match = routes.find(([prefix]) => req.url.startsWith(prefix + "/") || req.url === prefix);
     if (!match) { res.writeHead(404).end("no route"); return; }
     const [prefix, target] = match;
@@ -18,7 +27,7 @@ http
     // Kong converts the apikey header into an Authorization bearer when none is present.
     if (!headers.authorization && headers.apikey) headers.authorization = `Bearer ${headers.apikey}`;
     const upstream = http.request(url, { method: req.method, headers }, (up) => {
-      res.writeHead(up.statusCode ?? 502, up.headers);
+      res.writeHead(up.statusCode ?? 502, { ...up.headers, ...cors });
       up.pipe(res);
     });
     upstream.on("error", (e) => { res.writeHead(502).end(String(e)); });

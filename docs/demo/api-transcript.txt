@@ -1,0 +1,32 @@
+$ curl -X POST http://127.0.0.1:3123/api/v1/try-ons \
+    -H "Authorization: Bearer ts_sk_Y3GA…" \
+    -H "Content-Type: application/json" \
+    -d '{"person_image_base64":"…","product_id":"07514035-e449-4fd6-975e-cc91e9bd5f15","external_ref":"order_1042"}'
+
+HTTP 201  (3165 ms)
+{
+  "id": "119e2cb5-a801-4bb2-8714-b6806fd28eec",
+  "object": "try_on",
+  "status": "succeeded",
+  "result_url": "http://127.0.0.1:54321/storage/v1/object/sign/tryon-results/api/11eed31d-f474-4754-ae21-10bdb8d4f330/119e2cb5-a801-4bb2-8714-b6806fd28eec.png?token=…",
+  "result_url_expires_at": "2026-10-18T01:09:34.631Z",
+  "latency_ms": 3053,
+  "product_id": "07514035-e449-4fd6-975e-cc91e9bd5f15",
+  "external_ref": "order_1042",
+  "disclaimer": "AI-generated preview for visual reference only. Not a size or fit prediction."
+}
+
+$ curl http://127.0.0.1:3123/api/v1/usage -H "Authorization: Bearer ts_sk_Y3GA…"
+
+{
+  "object": "usage",
+  "billing_period": "2026-10-01",
+  "plan": "pilot",
+  "billing_status": "not_billing",
+  "used": 2,
+  "included": 500,
+  "overage_units": 0,
+  "hard_cap": true,
+  "estimated_total_cents": 0,
+  "note": "Estimates only. Billing is not active in this version."
+}
