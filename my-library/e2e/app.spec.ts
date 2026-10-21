@@ -161,3 +161,19 @@ test('the built-in sample book starts reading immediately', async ({ page }) => 
   await finish(page);
   await expect.poll(async () => (await spoken(page)).at(-1)).toMatch(/^Welcome to My Library, your private audiobook shelf/);
 });
+
+test('tapping Add opens the file picker, and pasted text becomes a book', async ({ page }) => {
+  await page.goto('./');
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByText('Add your first book').click()]);
+  await chooser.setFiles({ name: 'tapped.txt', mimeType: 'text/plain', buffer: Buffer.from('Picked through the real file picker.') });
+  await page.getByRole('button', { name: 'Save to library' }).click();
+  await expect(page.getByRole('button', { name: 'Open tapped' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Paste text as a book' }).click();
+  await page.getByRole('textbox', { name: 'Title' }).fill('My pasted chapter');
+  await page.getByRole('textbox', { name: 'Text' }).fill('This text was pasted in. It should be read aloud.');
+  await page.getByRole('button', { name: 'Save to library' }).click();
+  await page.getByRole('button', { name: 'Open My pasted chapter' }).click();
+  await page.getByTestId('play').click();
+  await expect.poll(() => spoken(page)).toEqual(['This text was pasted in. It should be read aloud.']);
+});

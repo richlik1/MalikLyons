@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
-import { ACCEPT, ImportError, importFile } from '../../core/importers';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { ImportError, importFile } from '../../core/importers';
+import { parseTxt } from '../../core/importers/txt';
 import { requestPersistentStorage, saveImportedBook } from '../../core/storage/db';
 import type { Book } from '../../core/types';
 import { useSettings } from '../hooks/settings';
@@ -62,15 +63,37 @@ export function useImporter(onImported: (books: Book[], openDetails: boolean) =>
   );
 
   const open = useCallback(() => inputRef.current?.click(), []);
+  const [pasting, setPasting] = useState(false);
+  const [pasteTitle, setPasteTitle] = useState('');
+  const [pasteText, setPasteText] = useState('');
+
+  const savePasted = useCallback(async () => {
+    const text = pasteText.trim();
+    if (!text) return;
+    const title = pasteTitle.trim() || 'Pasted text';
+    try {
+      const imported = { ...parseTxt(text, `${title}.txt`), title };
+      const category = settings.categories.includes('Other') ? 'Other' : settings.categories[0] ?? 'Other';
+      const book = await saveImportedBook(imported, { name: `${title}.txt`, size: text.length, type: 'text/plain', data: new Blob([text], { type: 'text/plain' }) }, category);
+      setPasting(false);
+      setPasteText('');
+      setPasteTitle('');
+      onImported([book], false);
+      toast(`Added “${title}”`);
+    } catch (e) {
+      toast(`Could not save the text: ${(e as Error).message}`, { kind: 'error' });
+    }
+  }, [pasteText, pasteTitle, settings.categories, onImported, toast]);
 
   const ui = (
     <>
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT}
+        id="book-file-input"
         multiple
-        hidden
+        className="sr-only"
+        tabIndex={-1}
         data-testid="file-input"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
@@ -102,6 +125,24 @@ export function useImporter(onImported: (books: Book[], openDetails: boolean) =>
           </div>
         </div>
       )}
+      {pasting && (
+        <Sheet title="Paste text" onClose={() => setPasting(false)}>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            If a file won’t import, open it in another app (Files, Books, a PDF viewer), select all the text, copy it, and paste it here.
+          </p>
+          <label className="field">
+            <span>Title</span>
+            <input id="paste-title" value={pasteTitle} onChange={(e) => setPasteTitle(e.target.value)} placeholder="Book title" />
+          </label>
+          <label className="field">
+            <span>Text</span>
+            <textarea id="paste-text" value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder="Paste the book’s text here" style={{ minHeight: 200 }} />
+          </label>
+          <button className="btn btn-primary btn-block" disabled={!pasteText.trim()} onClick={savePasted}>
+            Save to library
+          </button>
+        </Sheet>
+      )}
       {failures.length > 0 && (
         <Sheet title={failures.some((f) => f.needsOcr) ? 'This PDF needs OCR' : "Couldn't import"} onClose={() => setFailures([])}>
           {failures.map((f) => (
@@ -123,5 +164,12 @@ export function useImporter(onImported: (books: Book[], openDetails: boolean) =>
     </>
   );
 
-  return { open, ui, run };
+  /** A real label for the file input: tapping it opens the picker natively (works where scripted clicks are blocked). */
+  const AddLabel = ({ className, children, label }: { className: string; children: ReactNode; label?: string }) => (
+    <label htmlFor="book-file-input" className={className} role="button" tabIndex={0} aria-label={label} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}>
+      {children}
+    </label>
+  );
+
+  return { open, ui, run, AddLabel, openPaste: () => setPasting(true) };
 }

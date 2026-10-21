@@ -92,9 +92,12 @@ export function Library() {
         <button className="icon-btn" onClick={() => navigate('/settings')} aria-label="Settings and backup">
           <Icon name="settings" />
         </button>
-        <button className="btn btn-primary" onClick={importer.open} aria-label="Add a book">
-          <Icon name="plus" size={18} /> Add
+        <button className="icon-btn" onClick={importer.openPaste} aria-label="Paste text as a book">
+          <Icon name="text" />
         </button>
+        <importer.AddLabel className="btn btn-primary" label="Add a book">
+          <Icon name="plus" size={18} /> Add
+        </importer.AddLabel>
       </header>
       {importer.ui}
 
@@ -128,9 +131,9 @@ export function Library() {
           <h2>Your private audiobook shelf</h2>
           <p>Add a PDF, EPUB, Word (DOCX) or TXT book. It’s read aloud with your device’s free voices — nothing is uploaded, no account needed.</p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={importer.open}>
+            <importer.AddLabel className="btn btn-primary">
               <Icon name="plus" size={18} /> Add your first book
-            </button>
+            </importer.AddLabel>
             <button
               className="btn"
               onClick={async () => {
@@ -146,6 +149,9 @@ export function Library() {
               <Icon name="play" size={16} /> Try a sample book
             </button>
           </div>
+          <button className="btn btn-ghost" style={{ marginTop: 8 }} onClick={importer.openPaste}>
+            <Icon name="text" size={16} /> Paste text instead
+          </button>
           <div className="features">
             <div>
               <Icon name="shield" /> Files stay on this device, stored privately in the app.
