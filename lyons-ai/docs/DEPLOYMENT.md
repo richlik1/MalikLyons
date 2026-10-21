@@ -15,6 +15,9 @@ Target: one small Linux VM (Ubuntu 24.04, 2 vCPU / 4 GB RAM) running Docker Comp
 4. Install Docker Engine and the Compose plugin: https://docs.docker.com/engine/install/ubuntu/
 
 ## 2. Install
+**Easiest:** after cloning, run `sudo bash deploy/setup.sh`. It asks for your Telegram token, your Telegram user id and your Claude key, generates every other secret, writes `.env` (`chmod 600`), opens the firewall for SSH, 80 and 443, and starts everything. It uses a free `<ip>.sslip.io` hostname, so you don't need to buy a domain.
+
+Manual steps:
 ```bash
 git clone https://github.com/richlik1/MalikLyons.git && cd MalikLyons/lyons-ai
 cp .env.example .env && chmod 600 .env    # fill in per docs/SETUP.md
