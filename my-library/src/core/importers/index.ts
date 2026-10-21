@@ -33,8 +33,16 @@ export async function importFile(file: File, onProgress?: ProgressFn): Promise<I
   switch (format) {
     case 'pdf': {
       // PDF.js is large, so it is loaded only when a PDF is imported.
-      const [{ loadPdfjs, pdfDocOptions }, { importPdf }] = await Promise.all([import('./pdfjs-browser'), import('./pdf')]);
-      return importPdf(await loadPdfjs(), await file.arrayBuffer(), file.name, { onProgress, docOptions: pdfDocOptions() });
+      const [{ loadPdfjs, pdfDocOptions, useMainThreadWorker }, { importPdf }] = await Promise.all([import('./pdfjs-browser'), import('./pdf')]);
+      const data = await file.arrayBuffer();
+      const run = async () => importPdf(await loadPdfjs(), data.slice(0), file.name, { onProgress, docOptions: pdfDocOptions() });
+      try {
+        return await run();
+      } catch (e) {
+        // "Could not open" can mean the browser blocked PDF.js's worker; retry without it.
+        if (e instanceof ImportError && e.kind === 'corrupt' && (await useMainThreadWorker())) return run();
+        throw e;
+      }
     }
     case 'epub':
       return importEpub(file, file.name);

@@ -177,3 +177,12 @@ test('tapping Add opens the file picker, and pasted text becomes a book', async 
   await page.getByTestId('play').click();
   await expect.poll(() => spoken(page)).toEqual(['This text was pasted in. It should be read aloud.']);
 });
+
+test('PDF import still works when the browser blocks the PDF worker file', async ({ page }) => {
+  // Simulates restricted viewers (embedded pages, some in-app browsers) that refuse to start the worker.
+  await page.route(/pdf\.worker[^/]*\.mjs/, (route) => route.abort());
+  await page.goto('./');
+  await page.getByTestId('file-input').setInputFiles({ name: 'lighthouse.pdf', mimeType: 'application/pdf', buffer: await samplePdf() });
+  await expect(page.getByRole('dialog', { name: 'Book added' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel('Title')).toHaveValue('The Lighthouse Keeper');
+});

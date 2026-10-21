@@ -270,7 +270,12 @@ export async function importPdf(
   let doc: PdfDoc;
   const task = pdfjs.getDocument({ data: new Uint8Array(data), isEvalSupported: false, ...opts.docOptions });
   try {
-    doc = await task.promise;
+    // A blocked worker can leave PDF.js waiting forever; give up after 15 s.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('PDF engine did not start')), 15_000);
+    });
+    doc = await Promise.race([task.promise, timeout]).finally(() => clearTimeout(timer));
   } catch (e) {
     const name = (e as { name?: string })?.name;
     if (name === 'PasswordException')
