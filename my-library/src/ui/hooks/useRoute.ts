@@ -1,12 +1,30 @@
 import { useEffect, useState } from 'react';
 
-export type Route = { name: 'library' } | { name: 'book'; id: string; autoplay: boolean } | { name: 'settings' };
+export type Route =
+  | { name: 'library' }
+  | { name: 'book'; id: string; autoplay: boolean }
+  | { name: 'settings' }
+  | { name: 'growth' }
+  | { name: 'growth-book'; id: string }
+  | { name: 'growth-today' }
+  | { name: 'growth-review' }
+  | { name: 'growth-notes' }
+  | { name: 'mentor'; flow?: string };
 
 function parse(hash: string): Route {
   const [path, query = ''] = hash.replace(/^#\/?/, '').split('?');
   const [first, second] = path.split('/');
   if (first === 'book' && second) return { name: 'book', id: decodeURIComponent(second), autoplay: query.split('&').includes('play') };
   if (first === 'settings') return { name: 'settings' };
+  if (first === 'growth') {
+    const third = path.split('/')[2];
+    if (second === 'book' && third) return { name: 'growth-book', id: decodeURIComponent(third) };
+    if (second === 'today') return { name: 'growth-today' };
+    if (second === 'review') return { name: 'growth-review' };
+    if (second === 'notes') return { name: 'growth-notes' };
+    return { name: 'growth' };
+  }
+  if (first === 'mentor') return { name: 'mentor', flow: second ? decodeURIComponent(second) : undefined };
   return { name: 'library' };
 }
 

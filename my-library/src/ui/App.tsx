@@ -1,3 +1,8 @@
+import { useEffect } from 'react';
+import { GrowthBook } from './growth/GrowthBook';
+import { GrowthHome } from './growth/GrowthHome';
+import { NotesPage, ReviewPage, TodayPage } from './growth/GrowthPages';
+import { MentorPage } from './growth/MentorPage';
 import { Library } from './components/Library';
 import { Player } from './components/Player';
 import { SettingsPage } from './components/SettingsPage';
@@ -10,6 +15,8 @@ import { isNativeApp } from './platform';
 
 export function App() {
   const route = useRoute();
+  const routeKey = JSON.stringify(route);
+  useEffect(() => window.scrollTo(0, 0), [routeKey]);
   return (
     <ToastProvider>
       <SettingsProvider>
@@ -26,6 +33,12 @@ export function App() {
         {route.name === 'library' && <Library />}
         {route.name === 'settings' && <SettingsPage />}
         {route.name === 'book' && <Player key={route.id} id={route.id} autoplay={route.autoplay} />}
+        {route.name === 'growth' && <GrowthHome />}
+        {route.name === 'growth-book' && <GrowthBook key={route.id} id={route.id} />}
+        {route.name === 'growth-today' && <TodayPage />}
+        {route.name === 'growth-review' && <ReviewPage />}
+        {route.name === 'growth-notes' && <NotesPage />}
+        {route.name === 'mentor' && <MentorPage key={route.flow ?? ''} flowId={route.flow} />}
       </SettingsProvider>
     </ToastProvider>
   );

@@ -17,6 +17,26 @@ Built with React + TypeScript, PDF.js, the browser SpeechSynthesis API, IndexedD
 
 ---
 
+## LYONS AI — Knowledge & Growth Library
+
+A second section of the app (tab **Growth Library**) for personal and business development:
+
+- **21-book catalog** in 8 categories (Discipline & Mental Resilience, Confidence & Social Skills, Leadership & Communication,
+  Business Operations & Sales, Financial Intelligence, Fatherhood & Relationships, AI & Technology, Reading Notes & Action Plans),
+  searchable by title, author, skill, idea or your own notes, with "Read first" ordering.
+- Per book: **original summary**, key ideas, how to apply it at **Lyons Cleaning Solutions**, at **StayOps** and at home,
+  exercises, a quiz, notes, reading status, rating, and links to **legal** copies (Open Library, WorldCat, Libby).
+- **Your copy:** import your own legally obtained book in Audiobooks and link it to listen during your daily block. The app never
+  bundles copyrighted full texts.
+- **Daily 30-minute block** (review 5 · read/listen 15 · practice 5 · apply 5) with a streak, and a **weekly accountability review**
+  with automatic stats and a commitment that becomes an action item.
+- **Mentor:** guided coaching for difficult conversations, negotiation, team problems, business decisions, sales calls,
+  fatherhood moments and getting back on track. It runs on the device for free and cites the book behind each step. "Copy prompt"
+  creates a detailed prompt for ChatGPT or Claude, using your editable business profile.
+- Everything is stored on the device and included in backups.
+
+Content lives in `src/growth/` (catalog, plan logic, mentor flows); screens in `src/ui/growth/`.
+
 ## Features
 
 | | |

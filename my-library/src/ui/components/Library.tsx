@@ -4,6 +4,7 @@ import { listBooks, listProgress, saveImportedBook } from '../../core/storage/db
 import { isIOS } from '../../core/speech/webSpeechEngine';
 import type { Book, Progress } from '../../core/types';
 import { navigate } from '../hooks/useRoute';
+import { SectionNav } from '../growth/SectionNav';
 import { isNativeApp } from '../platform';
 import { BookDetailsSheet, listeningHours } from './BookDetailsSheet';
 import { Cover } from './Cover';
@@ -99,6 +100,7 @@ export function Library() {
           <Icon name="plus" size={18} /> Add
         </importer.AddLabel>
       </header>
+      <SectionNav active="books" />
       {importer.ui}
 
       {showInstall && (

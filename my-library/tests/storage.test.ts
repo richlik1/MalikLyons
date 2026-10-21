@@ -32,7 +32,7 @@ const imported: ImportedBook = {
 
 async function clearAll() {
   const d = await db();
-  for (const s of ['books', 'contents', 'files', 'progress', 'annotations', 'kv'] as const) await d.clear(s);
+  for (const s of ['books', 'contents', 'files', 'progress', 'annotations', 'kv', 'growthBooks', 'growthNotes', 'growthDays', 'growthReviews'] as const) await d.clear(s);
 }
 
 describe('library storage', () => {
@@ -74,7 +74,7 @@ describe('library storage', () => {
     expect(await listBooks()).toEqual([]);
 
     const summary = await restoreBackup(parseBackup(json), { restoreSettings: true });
-    expect(summary).toEqual({ books: 1, skippedBooks: 0, annotations: 1, progress: 1 });
+    expect(summary).toEqual({ books: 1, skippedBooks: 0, annotations: 1, progress: 1, growth: 0 });
     expect((await listBooks())[0].title).toBe('Stored Book');
     expect((await getProgress(book.id))?.offset).toBe(3);
     expect((await listAnnotations(book.id))[0].note).toBe('Nice');

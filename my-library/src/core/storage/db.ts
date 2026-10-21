@@ -2,6 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { newId } from '../id';
 import type { Annotation, Book, BookContent, ImportedBook, Progress, Settings, StoredFile } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
+import type { DailyBlock, GrowthBookState, GrowthNote, WeeklyReview } from '../../growth/types';
 
 /**
  * All data lives in this browser's IndexedDB. Nothing is ever uploaded.
@@ -14,21 +15,37 @@ interface LibraryDB extends DBSchema {
   progress: { key: string; value: Progress };
   annotations: { key: string; value: Annotation; indexes: { byBook: string } };
   kv: { key: string; value: unknown };
+  // LYONS AI Growth Library (schema v2)
+  growthBooks: { key: string; value: GrowthBookState };
+  growthNotes: { key: string; value: GrowthNote };
+  growthDays: { key: string; value: DailyBlock };
+  growthReviews: { key: string; value: WeeklyReview };
 }
+
+export const GROWTH_STORES = ['growthBooks', 'growthNotes', 'growthDays', 'growthReviews'] as const;
 
 export const DB_NAME = 'my-library';
 let dbPromise: Promise<IDBPDatabase<LibraryDB>> | null = null;
 
 export function db(): Promise<IDBPDatabase<LibraryDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<LibraryDB>(DB_NAME, 1, {
-      upgrade(d) {
-        d.createObjectStore('books', { keyPath: 'id' });
-        d.createObjectStore('contents', { keyPath: 'bookId' });
-        d.createObjectStore('files', { keyPath: 'bookId' });
-        d.createObjectStore('progress', { keyPath: 'bookId' });
-        d.createObjectStore('annotations', { keyPath: 'id' }).createIndex('byBook', 'bookId');
-        d.createObjectStore('kv');
+    dbPromise = openDB<LibraryDB>(DB_NAME, 2, {
+      upgrade(d, oldVersion) {
+        if (oldVersion < 1) {
+          d.createObjectStore('books', { keyPath: 'id' });
+          d.createObjectStore('contents', { keyPath: 'bookId' });
+          d.createObjectStore('files', { keyPath: 'bookId' });
+          d.createObjectStore('progress', { keyPath: 'bookId' });
+          d.createObjectStore('annotations', { keyPath: 'id' }).createIndex('byBook', 'bookId');
+          d.createObjectStore('kv');
+        }
+        if (oldVersion < 2) {
+          // Added with the Growth Library; existing books and progress are untouched.
+          d.createObjectStore('growthBooks', { keyPath: 'bookId' });
+          d.createObjectStore('growthNotes', { keyPath: 'id' });
+          d.createObjectStore('growthDays', { keyPath: 'date' });
+          d.createObjectStore('growthReviews', { keyPath: 'week' });
+        }
       },
       blocking() {
         // Another tab upgraded the schema: close so it can proceed.
