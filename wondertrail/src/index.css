@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-cream-100 text-ink antialiased; font-size: 1.0625rem; line-height: 1.6; }
+  h1, h2, h3 { @apply font-extrabold tracking-tight text-ink; line-height: 1.2; }
+  :focus-visible { outline: 3px solid #F4B740; outline-offset: 3px; border-radius: 0.5rem; }
+  ::selection { background: #FDF0CF; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl px-5 py-3 text-base font-bold
+      transition-colors disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.98];
+  }
+  .btn-primary { @apply btn bg-primary text-white hover:bg-primary-dark; }
+  .btn-coral { @apply btn bg-coral-dark text-white hover:bg-[#8E2C21]; }
+  .btn-secondary { @apply btn border-2 border-primary/30 bg-white text-primary-dark hover:border-primary hover:bg-primary-light; }
+  .btn-ghost { @apply btn text-primary-dark hover:bg-primary-light; }
+  .card { @apply rounded-3xl border border-cream-300/70 bg-white shadow-card; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold; }
+  .field-label { @apply mb-1.5 block text-base font-bold text-ink; }
+  .input {
+    @apply w-full rounded-2xl border-2 border-cream-300 bg-white px-4 py-3 text-base text-ink placeholder:text-ink-muted/70
+      focus:border-primary focus:outline-none;
+  }
+  .page { @apply mx-auto w-full max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:pb-12; }
+  .eyebrow { @apply text-sm font-bold uppercase tracking-wider text-primary; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff !important; font-size: 12pt; }
+  .no-print { display: none !important; }
+  .print-area { box-shadow: none !important; border: 2px solid #1E2B2F !important; break-inside: avoid; }
+}
