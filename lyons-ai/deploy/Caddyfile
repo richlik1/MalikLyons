@@ -1,0 +1,27 @@
+# Public surface = the Google OAuth redirect only. Everything else is 404.
+{$LYONS_DOMAIN} {
+	@oauth path /oauth/google/callback
+	handle @oauth {
+		reverse_proxy lyons-ai:8080
+	}
+	# Twilio voice webhooks (AI receptionist). Every request is signature-checked by the app.
+	@voice path /voice/*
+	handle @voice {
+		reverse_proxy lyons-ai:8080
+	}
+	# Mac bridge (iMessage + storage). Prefer a private network (e.g. Tailscale) instead;
+	# requests are HMAC-signed either way. Uncomment only if the Mac can't reach the VM privately.
+	# @bridge path /bridge/*
+	# handle @bridge {
+	# 	reverse_proxy lyons-ai:8080
+	# }
+	handle {
+		respond 404
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+}

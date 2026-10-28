@@ -1,0 +1,183 @@
+{
+  "name": "LYONS AI - Daily briefings",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "a1f1c3d0-0001-4000-8000-000000000001",
+      "name": "Every day 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "a1f1c3d0-0001-4000-8000-000000000002",
+      "name": "Every day 18:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "a1f1c3d0-0001-4000-8000-000000000006",
+      "name": "Run morning now (manual / other workflows)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst body = JSON.stringify({ kind: 'morning', scope: 'business' });\nconst ts = Math.floor(Date.now() / 1000);\nconst sig = crypto.createHmac('sha256', $env.LYONS_WEBHOOK_SECRET).update(`${ts}.${body}`).digest('hex');\nreturn [{ json: { body, ts: String(ts), sig, url: `${$env.LYONS_BASE_URL}/hooks/briefing` } }];"
+      },
+      "id": "a1f1c3d0-0001-4000-8000-000000000003",
+      "name": "Sign morning request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst body = JSON.stringify({ kind: 'evening', scope: 'business' });\nconst ts = Math.floor(Date.now() / 1000);\nconst sig = crypto.createHmac('sha256', $env.LYONS_WEBHOOK_SECRET).update(`${ts}.${body}`).digest('hex');\nreturn [{ json: { body, ts: String(ts), sig, url: `${$env.LYONS_BASE_URL}/hooks/briefing` } }];"
+      },
+      "id": "a1f1c3d0-0001-4000-8000-000000000004",
+      "name": "Sign evening request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lyons-timestamp",
+              "value": "={{ $json.ts }}"
+            },
+            {
+              "name": "x-lyons-signature",
+              "value": "={{ $json.sig }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "a1f1c3d0-0001-4000-8000-000000000005",
+      "name": "POST to LYONS AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Every day 07:00": {
+      "main": [
+        [
+          {
+            "node": "Sign morning request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day 18:30": {
+      "main": [
+        [
+          {
+            "node": "Sign evening request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign morning request": {
+      "main": [
+        [
+          {
+            "node": "POST to LYONS AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign evening request": {
+      "main": [
+        [
+          {
+            "node": "POST to LYONS AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run morning now (manual / other workflows)": {
+      "main": [
+        [
+          {
+            "node": "Sign morning request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
+  "active": false
+}
